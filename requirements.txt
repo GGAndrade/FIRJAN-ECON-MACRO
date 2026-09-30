@@ -1,0 +1,12 @@
+streamlit
+altair
+gspread
+pandas
+xlsxwriter
+xmltodict
+numpy
+openpyxl
+xmltodict
+pdfminer.six
+python-docx
+xlrd

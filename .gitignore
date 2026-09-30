@@ -1,0 +1,24 @@
+# Ambientes Virtuais
+.venv/
+venv/
+env/
+ENV/
+
+# Segredos e Configurações Confidenciais
+.streamlit/secrets.toml
+secrets.toml
+*.pem
+*.key
+
+# Cache e Compilação Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Scripts temporários de trabalho
+scratch/
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db
