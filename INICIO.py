@@ -41,7 +41,8 @@ with col_resp2:
             <div style="font-size: 14px; text-transform: uppercase; color: #555; font-weight: 600;">Acesso Rápido aos Dashboards</div>
             <div style="margin-top: 8px; font-size: 14px; line-height: 1.6;">
                 &bull; <b>Indústria no Mundo:</b> Desempenho e participação da indústria brasileira na produção mundial (UNIDO) e exportações globais (OCDE / Comtrade).<br>
-                &bull; <b>CAC SHWEB:</b> Coeficientes de Abertura Comercial (CEX, CPI, CII, CEL) e integração internacional da indústria brasileira.
+                &bull; <b>CAC SHWEB:</b> Coeficientes de Abertura Comercial (CEX, CPI, CII, CEL) e integração internacional da indústria brasileira.<br>
+                &bull; <b>PIM-BR:</b> Produção Física Industrial (IBGE) por seções e atividades econômicas, números-índices e variações setoriais.
             </div>
         </div>
         """,

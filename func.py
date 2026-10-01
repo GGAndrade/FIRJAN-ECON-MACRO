@@ -10,11 +10,17 @@ import tempfile
 from io import BytesIO
 import pandas as pd
 import json
-import gspread
+try:
+    import gspread
+except ImportError:
+    gspread = None
 import os
 import requests
 import base64
-from docx import Document
+try:
+    from docx import Document
+except ImportError:
+    Document = None
 from streamlit.components.v1 import html
 import altair as alt
 
@@ -88,6 +94,7 @@ def config_page(page_title):
         )
         st.page_link("pages/TRADUTOR_GPT.py", label="Tradutor GPT", icon="🌐")
         st.page_link("pages/CAC_SHWEB.py", label="CAC SHWEB", icon="📊")
+        st.page_link("pages/PIM_BR.py", label="PIM-BR", icon="🏭")
 
     custom_style()
 
@@ -96,6 +103,11 @@ def custom_style():
     st.html(
         """
         <style>
+            /* Ocultar navegação nativa automática do Streamlit para manter ordem oficial */
+            [data-testid="stSidebarNav"] {
+                display: none;
+            }
+
             /* Tratar espaço entre items da sidebar */ 
             [class='stPageLink'] {
                 margin: -0.25rem;
@@ -587,7 +599,12 @@ def footer_firjan():
 # Função gerar planilha excel com os dados
 def to_excel(x):
     output = BytesIO()
-    writer = pd.ExcelWriter(output, engine="xlsxwriter")
+    try:
+        import xlsxwriter
+        engine = "xlsxwriter"
+    except ImportError:
+        engine = "openpyxl"
+    writer = pd.ExcelWriter(output, engine=engine)
     for i, df in enumerate(x):
         if "Data" in df.columns:
             df["Data"] = df["Data"].dt.date
@@ -621,7 +638,12 @@ def to_word_translate(title, original, text):
 
 def to_excel2(x):
     output = BytesIO()
-    writer = pd.ExcelWriter(output, engine="xlsxwriter")
+    try:
+        import xlsxwriter
+        engine = "xlsxwriter"
+    except ImportError:
+        engine = "openpyxl"
+    writer = pd.ExcelWriter(output, engine=engine)
     for i, df in enumerate(x):
         if "Data" in df.columns:
             df["Data"] = df["Data"].dt.date
