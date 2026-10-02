@@ -37,7 +37,7 @@ if os.path.exists("pt-BR-time-format.json"):
         pass
 
 # Título Principal e Apresentação Institucional
-st.write("# 🏭 Produção Física Industrial (PIM-PF Brasil)")
+st.write("# Produção Física Industrial (PIM-PF Brasil)")
 st.markdown(
     """
     Monitoramento contínuo da **Produção Física Industrial brasileira** por seções e atividades industriais 
@@ -131,58 +131,171 @@ with col2:
 data_maxima = df["Data"].max()
 data_maxima_pt = data_maxima.strftime("%m/%Y")
 
-# Função para extração e renderização dos cartões de KPI por setor
-def render_panorama_setor(subgrupo_nome, titulo_secao, key_prefix):
-    df_recente_sub = df[(df["Data"] == data_maxima) & (df["SUBGRUPOS"] == subgrupo_nome)]
+# Quadro Integrado: Panorama da Indústria Geral e seus Segmentos
+with st.container(border=True):
+    st.markdown(
+        """
+        <style>
+        .quadro-titulo-geral {
+            font-size: 1.18rem;
+            font-weight: 700;
+            color: #002d62;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #002d62;
+            margin-bottom: 12px;
+            letter-spacing: 0.2px;
+        }
+        .quadro-titulo-sub {
+            margin-left: 28px;
+            font-size: 0.98rem;
+            font-weight: 600;
+            color: #0050c8;
+            border-left: 3px solid #0050c8;
+            padding-left: 8px;
+            margin-top: 14px;
+            margin-bottom: 8px;
+        }
+        .divisor-quadro {
+            border-top: 1px dashed #cbd5e1;
+            margin: 16px 0 12px 0;
+        }
+        /* Cor azul institucional nos valores das métricas */
+        [data-testid="stMetricValue"] {
+            color: #002d62 !important;
+        }
+        /* Segmentos com recuo (5 colunas): fontes menores e azul em destaque */
+        [data-testid="stHorizontalBlock"]:has(> div:nth-child(5)) [data-testid="stMetricValue"] {
+            font-size: 1.35rem !important;
+            color: #0050c8 !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(> div:nth-child(5)) [data-testid="stMetricLabel"] {
+            font-size: 0.82rem !important;
+            color: #334155 !important;
+            font-weight: 500;
+        }
+        [data-testid="stHorizontalBlock"]:has(> div:nth-child(5)) [data-testid="stMetricDelta"] {
+            font-size: 0.82rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    def extrair_metrica(termo):
-        sub = df_recente_sub[df_recente_sub["VARIAVEL"].str.contains(termo, case=False, na=False, regex=False)]
-        if not sub.empty and pd.notna(sub["VALOR"].iloc[0]):
-            return sub["VALOR"].iloc[0]
-        return None
+    def extrair_indicadores(subgrupo_nome):
+        df_recente_sub = df[(df["Data"] == data_maxima) & (df["SUBGRUPOS"] == subgrupo_nome)]
 
-    kpi_mm1 = extrair_metrica("imediatamente anterior, com ajuste sazonal (M/M-1)")
-    kpi_m12 = extrair_metrica("mesmo mês do ano anterior (M/M-12)")
-    kpi_ano = extrair_metrica("acumulada no ano")
-    kpi_12m = extrair_metrica("acumulada em 12 meses")
+        def extrair_metrica(termo):
+            sub = df_recente_sub[df_recente_sub["VARIAVEL"].str.contains(termo, case=False, na=False, regex=False)]
+            if not sub.empty and pd.notna(sub["VALOR"].iloc[0]):
+                return sub["VALOR"].iloc[0]
+            return None
 
-    st.markdown(f"##### {titulo_secao}")
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        return {
+            "mm1": extrair_metrica("imediatamente anterior, com ajuste sazonal (M/M-1)"),
+            "m12": extrair_metrica("mesmo mês do ano anterior (M/M-12)"),
+            "ano": extrair_metrica("acumulada no ano"),
+            "12m": extrair_metrica("acumulada em 12 meses"),
+        }
 
-    with kpi1:
+    # 1. Indústria Geral
+    dados_ig = extrair_indicadores("1 Indústria geral")
+    st.markdown(
+        f'<div class="quadro-titulo-geral">Panorama da Indústria Geral ({data_maxima_pt})</div>',
+        unsafe_allow_html=True,
+    )
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
         st.metric(
             label="Variação M/M-1 (c/ ajuste)",
-            value=f"{kpi_mm1:+.2f}%" if kpi_mm1 is not None else "N/D",
-            delta=f"{kpi_mm1:+.2f}%" if kpi_mm1 is not None else None,
+            value=f"{dados_ig['mm1']:+.2f}%" if dados_ig["mm1"] is not None else "N/D",
+            delta=f"{dados_ig['mm1']:+.2f}%" if dados_ig["mm1"] is not None else None,
         )
-
-    with kpi2:
+    with col2:
         st.metric(
             label="Variação M/M-12 (interanual)",
-            value=f"{kpi_m12:+.2f}%" if kpi_m12 is not None else "N/D",
-            delta=f"{kpi_m12:+.2f}%" if kpi_m12 is not None else None,
+            value=f"{dados_ig['m12']:+.2f}%" if dados_ig["m12"] is not None else "N/D",
+            delta=f"{dados_ig['m12']:+.2f}%" if dados_ig["m12"] is not None else None,
         )
-
-    with kpi3:
+    with col3:
         st.metric(
             label="Acumulado no Ano",
-            value=f"{kpi_ano:+.2f}%" if kpi_ano is not None else "N/D",
-            delta=f"{kpi_ano:+.2f}%" if kpi_ano is not None else None,
+            value=f"{dados_ig['ano']:+.2f}%" if dados_ig["ano"] is not None else "N/D",
+            delta=f"{dados_ig['ano']:+.2f}%" if dados_ig["ano"] is not None else None,
         )
-
-    with kpi4:
+    with col4:
         st.metric(
             label="Acumulado em 12 Meses",
-            value=f"{kpi_12m:+.2f}%" if kpi_12m is not None else "N/D",
-            delta=f"{kpi_12m:+.2f}%" if kpi_12m is not None else None,
+            value=f"{dados_ig['12m']:+.2f}%" if dados_ig["12m"] is not None else "N/D",
+            delta=f"{dados_ig['12m']:+.2f}%" if dados_ig["12m"] is not None else None,
         )
 
-# Renderização dos 3 panoramas macroeconômicos principais
-render_panorama_setor("1 Indústria geral", f"📌 Panorama da Indústria Geral ({data_maxima_pt})", "ig")
-st.write("")
-render_panorama_setor("2 Indústrias extrativas", f"⛏️ Panorama das Indústrias Extrativas ({data_maxima_pt})", "ext")
-st.write("")
-render_panorama_setor("3 Indústrias de transformação", f"⚙️ Panorama das Indústrias de Transformação ({data_maxima_pt})", "transf")
+    st.markdown('<div class="divisor-quadro"></div>', unsafe_allow_html=True)
+
+    # 2. Indústria Extrativa (no singular e com recuo à direita)
+    dados_ext = extrair_indicadores("2 Indústrias extrativas")
+    st.markdown(
+        f'<div class="quadro-titulo-sub">Indústria Extrativa ({data_maxima_pt})</div>',
+        unsafe_allow_html=True,
+    )
+    _, e1, e2, e3, e4 = st.columns([0.05, 1, 1, 1, 1])
+    with e1:
+        st.metric(
+            label="Variação M/M-1 (c/ ajuste)",
+            value=f"{dados_ext['mm1']:+.2f}%" if dados_ext["mm1"] is not None else "N/D",
+            delta=f"{dados_ext['mm1']:+.2f}%" if dados_ext["mm1"] is not None else None,
+        )
+    with e2:
+        st.metric(
+            label="Variação M/M-12 (interanual)",
+            value=f"{dados_ext['m12']:+.2f}%" if dados_ext["m12"] is not None else "N/D",
+            delta=f"{dados_ext['m12']:+.2f}%" if dados_ext["m12"] is not None else None,
+        )
+    with e3:
+        st.metric(
+            label="Acumulado no Ano",
+            value=f"{dados_ext['ano']:+.2f}%" if dados_ext["ano"] is not None else "N/D",
+            delta=f"{dados_ext['ano']:+.2f}%" if dados_ext["ano"] is not None else None,
+        )
+    with e4:
+        st.metric(
+            label="Acumulado em 12 Meses",
+            value=f"{dados_ext['12m']:+.2f}%" if dados_ext["12m"] is not None else "N/D",
+            delta=f"{dados_ext['12m']:+.2f}%" if dados_ext["12m"] is not None else None,
+        )
+
+    st.markdown('<div class="divisor-quadro"></div>', unsafe_allow_html=True)
+
+    # 3. Indústria de Transformação (no singular e com recuo à direita)
+    dados_transf = extrair_indicadores("3 Indústrias de transformação")
+    st.markdown(
+        f'<div class="quadro-titulo-sub">Indústria de Transformação ({data_maxima_pt})</div>',
+        unsafe_allow_html=True,
+    )
+    _, t1, t2, t3, t4 = st.columns([0.05, 1, 1, 1, 1])
+    with t1:
+        st.metric(
+            label="Variação M/M-1 (c/ ajuste)",
+            value=f"{dados_transf['mm1']:+.2f}%" if dados_transf["mm1"] is not None else "N/D",
+            delta=f"{dados_transf['mm1']:+.2f}%" if dados_transf["mm1"] is not None else None,
+        )
+    with t2:
+        st.metric(
+            label="Variação M/M-12 (interanual)",
+            value=f"{dados_transf['m12']:+.2f}%" if dados_transf["m12"] is not None else "N/D",
+            delta=f"{dados_transf['m12']:+.2f}%" if dados_transf["m12"] is not None else None,
+        )
+    with t3:
+        st.metric(
+            label="Acumulado no Ano",
+            value=f"{dados_transf['ano']:+.2f}%" if dados_transf["ano"] is not None else "N/D",
+            delta=f"{dados_transf['ano']:+.2f}%" if dados_transf["ano"] is not None else None,
+        )
+    with t4:
+        st.metric(
+            label="Acumulado em 12 Meses",
+            value=f"{dados_transf['12m']:+.2f}%" if dados_transf["12m"] is not None else "N/D",
+            delta=f"{dados_transf['12m']:+.2f}%" if dados_transf["12m"] is not None else None,
+        )
 
 st.write("---")
 
@@ -403,7 +516,7 @@ df_export_serie = df_var[["Data", "SUBGRUPOS", "VARIAVEL", "VALOR", "UNIDADE_DE_
 try:
     dados_excel = to_excel2([df_export_pivot, df_export_serie])
     st.download_button(
-        label="📥 Baixar dados em Excel",
+        label="Baixar dados em Excel",
         data=dados_excel,
         file_name=f"PIM_BR_{data_maxima_pt.replace('/', '_')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
