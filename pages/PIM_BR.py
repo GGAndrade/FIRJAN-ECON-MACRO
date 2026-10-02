@@ -62,8 +62,7 @@ default_parquet = "PIM_BR/teste_pim.parquet"
 # Validação da existência do arquivo
 if BD is None and not os.path.exists(default_parquet):
     st.error(
-        f"Arquivo padrão `{default_parquet}` não encontrado. Por favor, faça o upload de um arquivo Parquet válido.",
-        icon="🚨",
+        f"Arquivo padrão `{default_parquet}` não encontrado. Por favor, faça o upload de um arquivo Parquet válido."
     )
     st.stop()
 
@@ -71,12 +70,18 @@ if BD is None and not os.path.exists(default_parquet):
 try:
     if BD is not None:
         df = pd.read_parquet(BD)
-        st.success(f"Utilizando arquivo Parquet enviado: `{BD.name}`", icon="✅")
+        st.markdown(
+            f'<div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 16px; color: #15803d; font-size: 14px; margin: 10px 0 18px 0;">Utilizando arquivo Parquet enviado: <code>{BD.name}</code>.</div>',
+            unsafe_allow_html=True,
+        )
     else:
         df = pd.read_parquet(default_parquet)
-        st.info("Utilizando a base consolidada padrão (`PIM_BR/teste_pim.parquet`).", icon="📊")
+        st.markdown(
+            '<div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 16px; color: #1e40af; font-size: 14px; margin: 10px 0 18px 0;">Utilizando a base consolidada padrão (<code>PIM_BR/teste_pim.parquet</code>).</div>',
+            unsafe_allow_html=True,
+        )
 except Exception as e:
-    st.error(f"Erro ao ler o arquivo Parquet: {e}. Verifique o formato do arquivo e tente novamente.", icon="🚨")
+    st.error(f"Erro ao ler o arquivo Parquet: {e}. Verifique o formato do arquivo e tente novamente.")
     st.stop()
 
 # Validação das colunas mínimas esperadas
@@ -84,8 +89,7 @@ colunas_necessarias = ["DATA", "VARIAVEL", "SUBGRUPOS", "VALOR"]
 colunas_faltantes = [c for c in colunas_necessarias if c not in df.columns]
 if colunas_faltantes:
     st.error(
-        f"O arquivo fornecido não possui as seguintes colunas obrigatórias: {colunas_faltantes}.",
-        icon="🚨",
+        f"O arquivo fornecido não possui as seguintes colunas obrigatórias: {colunas_faltantes}."
     )
     st.stop()
 
@@ -321,7 +325,7 @@ setores_selecionados = st.multiselect(
 )
 
 if not setores_selecionados:
-    st.warning("Selecione pelo menos um setor industrial para exibir a série temporal.", icon="⚠️")
+    st.warning("Selecione pelo menos um setor industrial para exibir a série temporal.")
 else:
     df_graf_linha = df_var[df_var["SUBGRUPOS"].isin(setores_selecionados)].copy()
     
@@ -340,7 +344,7 @@ else:
     ]
     
     if df_graf_linha.empty:
-        st.info("Nenhum registro para o período e setores selecionados.", icon="ℹ️")
+        st.info("Nenhum registro para o período e setores selecionados.")
     else:
         v_min = df_graf_linha["VALOR"].min()
         v_max = df_graf_linha["VALOR"].max()
@@ -423,7 +427,7 @@ if "Apenas ramos desagregados" in filtro_ramos:
 df_ranking = df_ranking.dropna(subset=["VALOR"]).sort_values("VALOR", ascending=False)
 
 if df_ranking.empty:
-    st.info("Nenhum dado encontrado para o mês selecionado.", icon="ℹ️")
+    st.info("Nenhum dado encontrado para o mês selecionado.")
 else:
     grafico_barras = (
         alt.Chart(df_ranking)
