@@ -131,50 +131,58 @@ with col2:
 data_maxima = df["Data"].max()
 data_maxima_pt = data_maxima.strftime("%m/%Y")
 
-# Extração de métricas de síntese para a "1 Indústria geral"
-df_recente_ig = df[(df["Data"] == data_maxima) & (df["SUBGRUPOS"] == "1 Indústria geral")]
+# Função para extração e renderização dos cartões de KPI por setor
+def render_panorama_setor(subgrupo_nome, titulo_secao, key_prefix):
+    df_recente_sub = df[(df["Data"] == data_maxima) & (df["SUBGRUPOS"] == subgrupo_nome)]
 
-def extrair_metrica(termo):
-    sub = df_recente_ig[df_recente_ig["VARIAVEL"].str.contains(termo, case=False, na=False, regex=False)]
-    if not sub.empty and pd.notna(sub["VALOR"].iloc[0]):
-        return sub["VALOR"].iloc[0]
-    return None
+    def extrair_metrica(termo):
+        sub = df_recente_sub[df_recente_sub["VARIAVEL"].str.contains(termo, case=False, na=False, regex=False)]
+        if not sub.empty and pd.notna(sub["VALOR"].iloc[0]):
+            return sub["VALOR"].iloc[0]
+        return None
 
-kpi_mm1 = extrair_metrica("imediatamente anterior, com ajuste sazonal (M/M-1)")
-kpi_m12 = extrair_metrica("mesmo mês do ano anterior (M/M-12)")
-kpi_ano = extrair_metrica("acumulada no ano")
-kpi_12m = extrair_metrica("acumulada em 12 meses")
+    kpi_mm1 = extrair_metrica("imediatamente anterior, com ajuste sazonal (M/M-1)")
+    kpi_m12 = extrair_metrica("mesmo mês do ano anterior (M/M-12)")
+    kpi_ano = extrair_metrica("acumulada no ano")
+    kpi_12m = extrair_metrica("acumulada em 12 meses")
 
-st.markdown(f"##### 📌 Panorama da Indústria Geral ({data_maxima_pt})")
-kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+    st.markdown(f"##### {titulo_secao}")
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 
-with kpi1:
-    st.metric(
-        label="Variação M/M-1 (c/ ajuste)",
-        value=f"{kpi_mm1:+.2f}%" if kpi_mm1 is not None else "N/D",
-        delta=f"{kpi_mm1:+.2f}%" if kpi_mm1 is not None else None,
-    )
+    with kpi1:
+        st.metric(
+            label="Variação M/M-1 (c/ ajuste)",
+            value=f"{kpi_mm1:+.2f}%" if kpi_mm1 is not None else "N/D",
+            delta=f"{kpi_mm1:+.2f}%" if kpi_mm1 is not None else None,
+        )
 
-with kpi2:
-    st.metric(
-        label="Variação M/M-12 (interanual)",
-        value=f"{kpi_m12:+.2f}%" if kpi_m12 is not None else "N/D",
-        delta=f"{kpi_m12:+.2f}%" if kpi_m12 is not None else None,
-    )
+    with kpi2:
+        st.metric(
+            label="Variação M/M-12 (interanual)",
+            value=f"{kpi_m12:+.2f}%" if kpi_m12 is not None else "N/D",
+            delta=f"{kpi_m12:+.2f}%" if kpi_m12 is not None else None,
+        )
 
-with kpi3:
-    st.metric(
-        label="Acumulado no Ano",
-        value=f"{kpi_ano:+.2f}%" if kpi_ano is not None else "N/D",
-        delta=f"{kpi_ano:+.2f}%" if kpi_ano is not None else None,
-    )
+    with kpi3:
+        st.metric(
+            label="Acumulado no Ano",
+            value=f"{kpi_ano:+.2f}%" if kpi_ano is not None else "N/D",
+            delta=f"{kpi_ano:+.2f}%" if kpi_ano is not None else None,
+        )
 
-with kpi4:
-    st.metric(
-        label="Acumulado em 12 Meses",
-        value=f"{kpi_12m:+.2f}%" if kpi_12m is not None else "N/D",
-        delta=f"{kpi_12m:+.2f}%" if kpi_12m is not None else None,
-    )
+    with kpi4:
+        st.metric(
+            label="Acumulado em 12 Meses",
+            value=f"{kpi_12m:+.2f}%" if kpi_12m is not None else "N/D",
+            delta=f"{kpi_12m:+.2f}%" if kpi_12m is not None else None,
+        )
+
+# Renderização dos 3 panoramas macroeconômicos principais
+render_panorama_setor("1 Indústria geral", f"📌 Panorama da Indústria Geral ({data_maxima_pt})", "ig")
+st.write("")
+render_panorama_setor("2 Indústrias extrativas", f"⛏️ Panorama das Indústrias Extrativas ({data_maxima_pt})", "ext")
+st.write("")
+render_panorama_setor("3 Indústrias de transformação", f"⚙️ Panorama das Indústrias de Transformação ({data_maxima_pt})", "transf")
 
 st.write("---")
 
