@@ -350,6 +350,11 @@ else:
         v_max = df_graf_linha["VALOR"].max()
         eixo_y_min = set_y_min(v_min) if pd.notna(v_min) else 0
         eixo_y_max = set_y_max(v_max) if pd.notna(v_max) else 100
+
+        # Margem vertical para dar respiro aos rótulos de máximo e mínimo
+        margem_y = (eixo_y_max - eixo_y_min) * 0.08
+        eixo_y_min -= margem_y
+        eixo_y_max += margem_y
         
         grafico_linha = (
             alt.Chart(df_graf_linha)
@@ -365,7 +370,109 @@ else:
                 ],
             )
         )
-        
+
+        # Identificar pontos de Máximo e Mínimo para cada setor
+        max_list = []
+        min_list = []
+        resumo_extremos = []
+        is_pct = ("(%)" in medida_label) or ("(p.p.)" in medida_label)
+        fmt_val = (lambda v: f"{v:+.2f}%") if is_pct else (lambda v: f"{v:.2f}")
+
+        for s in setores_selecionados:
+            sub_per = df_graf_linha[df_graf_linha["SUBGRUPOS"] == s].dropna(subset=["VALOR"])
+            sub_hist = df_var[df_var["SUBGRUPOS"] == s].dropna(subset=["VALOR"])
+
+            if not sub_per.empty:
+                idx_max_per = sub_per["VALOR"].idxmax()
+                idx_min_per = sub_per["VALOR"].idxmin()
+
+                r_max = sub_per.loc[idx_max_per].to_dict()
+                r_max["Rotulo"] = f"Máx: {fmt_val(r_max['VALOR'])} ({r_max['Data pt']})"
+                max_list.append(r_max)
+
+                r_min = sub_per.loc[idx_min_per].to_dict()
+                r_min["Rotulo"] = f"Mín: {fmt_val(r_min['VALOR'])} ({r_min['Data pt']})"
+                min_list.append(r_min)
+
+                if not sub_hist.empty:
+                    idx_max_hist = sub_hist["VALOR"].idxmax()
+                    idx_min_hist = sub_hist["VALOR"].idxmin()
+                    r_max_hist = sub_hist.loc[idx_max_hist]
+                    r_min_hist = sub_hist.loc[idx_min_hist]
+                    r_ult = sub_per.sort_values("Data").iloc[-1]
+
+                    resumo_extremos.append(
+                        {
+                            "Setor": s,
+                            "Mínimo no Período": f"{fmt_val(r_min['VALOR'])} ({r_min['Data pt']})",
+                            "Máximo no Período": f"{fmt_val(r_max['VALOR'])} ({r_max['Data pt']})",
+                            "Mínimo Histórico Completo": f"{fmt_val(r_min_hist['VALOR'])} ({r_min_hist['Data pt']})",
+                            "Máximo Histórico Completo": f"{fmt_val(r_max_hist['VALOR'])} ({r_max_hist['Data pt']})",
+                            "Último Registrado": f"{fmt_val(r_ult['VALOR'])} ({r_ult['Data pt']})",
+                        }
+                    )
+
+        df_max = pd.DataFrame(max_list)
+        df_min = pd.DataFrame(min_list)
+
+        camadas = [grafico_linha]
+
+        # Camada de pontos e rótulos de Máximo
+        if not df_max.empty:
+            pontos_max = (
+                alt.Chart(df_max)
+                .mark_point(size=95, filled=True, shape="circle")
+                .encode(
+                    x="Data:T",
+                    y="VALOR:Q",
+                    color=alt.Color("SUBGRUPOS:N", legend=None),
+                    tooltip=[
+                        alt.Tooltip("SUBGRUPOS:N", title="Setor"),
+                        alt.Tooltip("Data:T", title="Data do Máximo", format="%m/%Y"),
+                        alt.Tooltip("VALOR:Q", title="Valor Máximo", format="+.2f" if is_pct else ".2f"),
+                    ],
+                )
+            )
+            rotulos_max = (
+                alt.Chart(df_max)
+                .mark_text(fontSize=11, fontWeight="bold", dy=-12, align="center")
+                .encode(
+                    x="Data:T",
+                    y="VALOR:Q",
+                    text="Rotulo:N",
+                    color=alt.Color("SUBGRUPOS:N", legend=None),
+                )
+            )
+            camadas.extend([pontos_max, rotulos_max])
+
+        # Camada de pontos e rótulos de Mínimo
+        if not df_min.empty:
+            pontos_min = (
+                alt.Chart(df_min)
+                .mark_point(size=95, filled=True, shape="circle")
+                .encode(
+                    x="Data:T",
+                    y="VALOR:Q",
+                    color=alt.Color("SUBGRUPOS:N", legend=None),
+                    tooltip=[
+                        alt.Tooltip("SUBGRUPOS:N", title="Setor"),
+                        alt.Tooltip("Data:T", title="Data do Mínimo", format="%m/%Y"),
+                        alt.Tooltip("VALOR:Q", title="Valor Mínimo", format="+.2f" if is_pct else ".2f"),
+                    ],
+                )
+            )
+            rotulos_min = (
+                alt.Chart(df_min)
+                .mark_text(fontSize=11, fontWeight="bold", dy=14, align="center")
+                .encode(
+                    x="Data:T",
+                    y="VALOR:Q",
+                    text="Rotulo:N",
+                    color=alt.Color("SUBGRUPOS:N", legend=None),
+                )
+            )
+            camadas.extend([pontos_min, rotulos_min])
+
         # Linha pontilhada no zero para variações ou influências
         if ("(%)" in medida_label or "(p.p.)" in medida_label) and (v_min < 0 < v_max):
             linha_zero = (
@@ -373,9 +480,9 @@ else:
                 .mark_rule(color="#888888", strokeDash=[3, 3])
                 .encode(y="y:Q")
             )
-            grafico_linha_final = (grafico_linha + linha_zero).properties(height=420)
-        else:
-            grafico_linha_final = grafico_linha.properties(height=420)
+            camadas.append(linha_zero)
+
+        grafico_linha_final = alt.layer(*camadas).properties(height=450)
             
         if pt_format and pt_time_format:
             grafico_linha_final["usermeta"] = {
@@ -386,6 +493,11 @@ else:
             }
             
         st.altair_chart(grafico_linha_final, theme=None, use_container_width=True)
+
+        if resumo_extremos:
+            st.markdown("##### Máximos e Mínimos da Série Histórica por Setor")
+            df_tab_extremos = pd.DataFrame(resumo_extremos)
+            st.dataframe(df_tab_extremos, use_container_width=True, hide_index=True)
 
 st.write("---")
 
