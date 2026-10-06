@@ -24,6 +24,11 @@ from indmundo.unido.main import unido_fragment
 config_page("Indústria no Mundo | Firjan - GEE")
 header_firjan()
 
+# Verificação de segurança por senha
+if not check_password():
+    footer_firjan()
+    st.stop()
+
 # Especificar locale
 locale.setlocale(locale.LC_TIME, locale="pt_BR")
 

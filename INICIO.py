@@ -1,9 +1,14 @@
 import streamlit as st
-from func import config_page, header_firjan, footer_firjan
+from func import config_page, header_firjan, footer_firjan, check_password
 
 # Configuração da página e logo Firjan
 config_page("Início: Firjan - Dados MACRO")
 header_firjan()
+
+# Verificação de segurança por senha para todo o dashboard
+if not check_password():
+    footer_firjan()
+    st.stop()
 
 # Título Principal solicitado
 st.write("# **📈 Dados MACRO 📊**")
