@@ -846,14 +846,29 @@ with tab_comp:
 
     df_comp_filtrado = df_comp_var[df_comp_var["SUBGRUPOS"] == setor_comp_escolhido].copy()
 
-    datas_comp = sorted(df_comp_filtrado["Data"].dropna().unique().tolist(), reverse=True)
-    mapa_datas_comp = {d.strftime("%m/%Y"): d for d in pd.to_datetime(datas_comp)}
+    df_valido_comp = df_comp_filtrado.dropna(subset=["VALOR"])
+    datas_validas = sorted(df_valido_comp["Data"].unique().tolist(), reverse=True)
+    if not datas_validas:
+        datas_validas = sorted(df_comp_filtrado["Data"].dropna().unique().tolist(), reverse=True)
+
+    mapa_datas_comp = {d.strftime("%m/%Y"): d for d in pd.to_datetime(datas_validas)}
+    opcoes_datas_comp = list(mapa_datas_comp.keys())
+
+    # Selecionar inteligentemente como padrão o mês mais recente com divulgação regional (múltiplas UFs)
+    contagem_por_data = df_valido_comp.groupby("Data")["LOCAL"].nunique()
+    datas_com_multiplas_ufs = contagem_por_data[contagem_por_data > 1].index.sort_values(ascending=False)
+
+    idx_mes_padrao = 0
+    if not datas_com_multiplas_ufs.empty:
+        data_pref_str = datas_com_multiplas_ufs[0].strftime("%m/%Y")
+        if data_pref_str in opcoes_datas_comp:
+            idx_mes_padrao = opcoes_datas_comp.index(data_pref_str)
 
     with col_c3:
         mes_comp_str = st.selectbox(
             "Mês de Referência para o Ranking",
-            options=list(mapa_datas_comp.keys()),
-            index=0,
+            options=opcoes_datas_comp,
+            index=idx_mes_padrao,
             key="comp_mes_ref",
         )
         mes_comp = mapa_datas_comp[mes_comp_str] if mapa_datas_comp else None
@@ -929,7 +944,20 @@ with tab_comp:
         st.write("---")
         st.markdown(f"#### Ranking das UFs em {mes_comp_str} — {setor_comp_escolhido}")
 
-        df_rank_uf = df_comp_filtrado[df_comp_filtrado["Data"] == mes_comp].dropna(subset=["VALOR"]).sort_values("VALOR", ascending=False)
+        df_rank_uf = (
+            df_comp_filtrado[df_comp_filtrado["Data"] == mes_comp]
+            .dropna(subset=["VALOR"])
+            .drop_duplicates(subset=["LOCAL"], keep="last")
+            .sort_values("VALOR", ascending=False)
+        )
+
+        if len(df_rank_uf) <= 1 and not df_rank_uf.empty:
+            st.info(
+                f"**Aviso de Divulgação (IBGE):** Para o mês de **{mes_comp_str}**, apenas o "
+                f"**Brasil consolidado** possui dados divulgados até o momento. "
+                f"Para comparar o ranking regional entre todos os estados (Rio de Janeiro, São Paulo, Minas Gerais, etc.), "
+                f"selecione no campo 'Mês de Referência para o Ranking' acima uma data com divulgação regional completa (ex.: 07/2026)."
+            )
 
         if df_rank_uf.empty:
             st.info("Nenhum registro para o mês selecionado no ranking regional.")
@@ -940,16 +968,21 @@ with tab_comp:
                 elif row["LOCAL"] == "Brasil":
                     return "#002d62"
                 elif row["VALOR"] >= 0:
-                    return "#38bdf8"
+                    return "#0072ce"
                 else:
                     return "#b90e0c"
 
             df_rank_uf["Cor_Barra"] = df_rank_uf.apply(definir_cor_uf, axis=1)
 
+            altura_grafico = max(130, len(df_rank_uf) * 28)
+            chart_base = (
+                alt.Chart(df_rank_uf).mark_bar(size=22)
+                if len(df_rank_uf) <= 2
+                else alt.Chart(df_rank_uf).mark_bar()
+            )
+
             graf_barras_uf = (
-                alt.Chart(df_rank_uf)
-                .mark_bar()
-                .encode(
+                chart_base.encode(
                     x=alt.X("VALOR:Q", title=medida_comp_label),
                     y=alt.Y(
                         "LOCAL:N",
@@ -962,19 +995,28 @@ with tab_comp:
                         alt.Tooltip("VALOR:Q", title="Valor", format=".2f"),
                     ],
                 )
-                .properties(height=max(360, len(df_rank_uf) * 24))
+                .properties(height=altura_grafico)
             )
 
-            rotulos_uf = graf_barras_uf.mark_text(
-                align=alt.expr("datum.VALOR >= 0 ? 'left' : 'right'"),
-                dx=alt.expr("datum.VALOR >= 0 ? 6 : -6"),
-                fontSize=11,
-            ).encode(
-                text=alt.Text(
-                    "VALOR:Q",
-                    format="+.2f" if "%" in medida_comp_label or "p.p." in medida_comp_label else ".2f",
-                ),
-                color=alt.value("#1e293b"),
+            rotulos_uf = (
+                alt.Chart(df_rank_uf)
+                .mark_text(
+                    align=alt.expr("datum.VALOR >= 0 ? 'left' : 'right'"),
+                    dx=alt.expr("datum.VALOR >= 0 ? 6 : -6"),
+                    fontSize=11,
+                )
+                .encode(
+                    x="VALOR:Q",
+                    y=alt.Y(
+                        "LOCAL:N",
+                        sort=alt.EncodingSortField(field="VALOR", order="descending"),
+                    ),
+                    text=alt.Text(
+                        "VALOR:Q",
+                        format="+.2f" if "%" in medida_comp_label or "p.p." in medida_comp_label else ".2f",
+                    ),
+                    color=alt.value("#1e293b"),
+                )
             )
 
             graf_barras_uf_final = graf_barras_uf + rotulos_uf
