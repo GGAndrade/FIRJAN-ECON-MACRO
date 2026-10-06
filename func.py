@@ -88,13 +88,12 @@ def config_page(page_title):
             )
         st.write("")
 
-        st.page_link("INICIO.py", label="Início", icon="🏠")
+        st.page_link("INICIO.py", label="Início", icon=":material/home")
         st.page_link(
-            "pages/INDUSTRIA_NO_MUNDO.py", label="Indústria no Mundo", icon="📉"
+            "pages/INDUSTRIA_NO_MUNDO.py", label="Indústria no Mundo", icon=":material/public"
         )
-        st.page_link("pages/TRADUTOR_GPT.py", label="Tradutor GPT", icon="🌐")
-        st.page_link("pages/CAC_SHWEB.py", label="CAC SHWEB", icon="📊")
-        st.page_link("pages/PIM_BR.py", label="PIM-BR", icon="🏭")
+        st.page_link("pages/CAC_SHWEB.py", label="CAC SHWEB", icon=":material/analytics")
+        st.page_link("pages/PIM_BR.py", label="PIM-BR", icon=":material/factory")
 
     custom_style()
 
@@ -106,6 +105,20 @@ def custom_style():
             /* Ocultar navegação nativa automática do Streamlit para manter ordem oficial */
             [data-testid="stSidebarNav"] {
                 display: none;
+            }
+
+            /* Ícones e figuras da barra lateral nos tons de azul institucional da Firjan */
+            [data-testid="stSidebar"] [data-testid="stIconMaterial"],
+            [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"],
+            [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"] svg,
+            [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"] span:first-child {
+                color: #002d62 !important;
+                fill: #002d62 !important;
+            }
+            [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"]:hover [data-testid="stIconMaterial"],
+            [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"]:hover span:first-child {
+                color: #0072ce !important;
+                fill: #0072ce !important;
             }
 
             /* Tratar espaço entre items da sidebar */ 

@@ -53,7 +53,7 @@ tab1, tab2 = st.tabs(["DADOS INTERNOS", "DADOS DIVULGADOS"])
 
 # %%
 with tab2:
-    st.info("Visualização pública dos indicadores de produção mundial (UNIDO) e exportações industriais (OCDE).", icon="🌐")
+    st.info("Visualização pública dos indicadores de produção mundial (UNIDO) e exportações industriais (OCDE).")
     subtab1, subtab2 = st.tabs(["DADOS UNIDO (PRODUÇÃO)", "DADOS OCDE (EXPORTAÇÃO)"])
     with subtab1:
         unido_fragment(prefix="pub_")
@@ -80,8 +80,7 @@ with tab1:
                 """
             ##### Atenção! Clicar no botão abaixo iniciará o processo de atualização das bases. 
             O processo é demorado e envolve várias requisições para as APIs da UNIDO e OCDE, então só usar quando estritamente necessário.
-            """,
-                icon="⚠️",
+            """
             )
 
             col1, col2 = st.columns(2)
@@ -93,11 +92,11 @@ with tab1:
 
                     try:
                         update_message.warning(
-                            "Processando, aguarde...", icon="⚠️"
+                            "Processando, aguarde..."
                         )  # Update message
                         manual_update_unido()
                         update_message.success(
-                            "##### Base da UNIDO atualizada com sucesso!", icon="✅"
+                            "##### Base da UNIDO atualizada com sucesso!"
                         )  # Update message
                     except Exception as e:
                         f"Erro: {e}"

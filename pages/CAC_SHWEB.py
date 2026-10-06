@@ -26,7 +26,7 @@ locale.setlocale(locale.LC_TIME, locale="pt_BR")
 
 st.title("Coeficientes de Abertura Comercial (CAC) - Firjan")
 
-tab_dash, tab_planilhas = st.tabs(["📊 DASHBOARD DE INDICADORES", "📁 GERADOR DE PLANILHAS (CARGAS SHWEB)"])
+tab_dash, tab_planilhas = st.tabs(["DASHBOARD DE INDICADORES", "GERADOR DE PLANILHAS (CARGAS SHWEB)"])
 
 with tab_dash:
     render_cac_dashboard()
@@ -47,7 +47,7 @@ with tab_planilhas:
                 planilha = update_cac_pcons(pcons)
                 df_xlsx = to_excel([planilha])
                 st.download_button(
-                    label="📥 Baixar planilha: precos constantes",
+                    label="Baixar planilha: precos constantes",
                     data=df_xlsx,
                     file_name="cac_shweb_pcons.xlsx",
                     use_container_width=True,
@@ -65,7 +65,7 @@ with tab_planilhas:
                 planilha = update_cac_pcorr(pcorr)
                 df_xlsx = to_excel([planilha])
                 st.download_button(
-                    label="📥 Baixar planilha: precos correntes",
+                    label="Baixar planilha: precos correntes",
                     data=df_xlsx,
                     file_name="cac_shweb_pcorr.xlsx",
                     use_container_width=True,

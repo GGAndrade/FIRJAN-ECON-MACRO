@@ -52,7 +52,7 @@ def get_cac_data():
     return df
 
 def render_cac_dashboard():
-    st.subheader("📊 Coeficientes de Abertura Comercial da Indústria Brasileira (CAC)")
+    st.subheader("Coeficientes de Abertura Comercial da Indústria Brasileira (CAC)")
     st.markdown("""
     Os **Coeficientes de Abertura Comercial (CAC)** medem o grau de integração internacional da indústria brasileira:
     - **CEX (Coeficiente de Exportação)**: Parcela da produção nacional voltada ao mercado externo.
@@ -150,5 +150,5 @@ def render_cac_dashboard():
     st.altair_chart(chart_bar + text_bar, use_container_width=True)
     
     # Tabela de dados
-    with st.expander("📋 Ver Tabela Completa de Coeficientes"):
+    with st.expander("Ver Tabela Completa de Coeficientes"):
         st.dataframe(df_filtrado, use_container_width=True)

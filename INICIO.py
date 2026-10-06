@@ -11,7 +11,7 @@ if not check_password():
     st.stop()
 
 # Título Principal solicitado
-st.write("# **📈 Dados MACRO 📊**")
+st.write("# **Dados MACRO**")
 st.markdown("### **Gerência Executiva de Economia (GEE) — Firjan**")
 
 st.markdown(
@@ -57,12 +57,12 @@ with col_resp2:
 st.write("")
 
 # Seção de Notícias e Estudos da Firjan
-st.markdown("### 📰 Informações e Estudos da Firjan")
+st.markdown("### Informações e Estudos da Firjan")
 st.markdown(
     """
     Acompanhe os estudos econômicos, notas técnicas, posicionamentos e o panorama da indústria fluminense e brasileira:
     
-    👉 **[Notícias | Firjan](https://firjan.com.br/noticias/default.htm)**
+    **[Notícias | Firjan](https://firjan.com.br/noticias/default.htm)**
     """
 )
 
@@ -104,7 +104,7 @@ with col_n3:
 st.write("---")
 
 # Seção Fale Conosco
-st.markdown("### 💬 A Firjan quer ouvir você!")
+st.markdown("### A Firjan quer ouvir você!")
 st.markdown(
     """
     Suas dúvidas, elogios e sugestões ajudam a Firjan a melhorar continuamente esse serviço. 
@@ -113,7 +113,7 @@ st.markdown(
 )
 
 st.markdown(
-    '<a href="https://firjan.com.br/fale-conosco/" target="_blank"><span style="font-size: 22px; font-weight: 700; color: #002d62;">✉️ Fale com a GEE</span></a>',
+    '<a href="https://firjan.com.br/fale-conosco/" target="_blank"><span style="font-size: 22px; font-weight: 700; color: #002d62;">Fale com a GEE</span></a>',
     unsafe_allow_html=True,
 )
 
@@ -123,7 +123,6 @@ st.write("")
 st.info(
     'Para uma resposta mais rápida, inclua "Fale com a GEE" e "[Firjan - Economia - GEE-MACRO]" no início da sua mensagem. '
     'Responsável Técnica: Gerlane Andrade - Especialista em Estudos de Competitividade.',
-    icon="📮",
 )
 
 # Rodapé oficial Sistema Firjan

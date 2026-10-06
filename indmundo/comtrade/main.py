@@ -32,8 +32,7 @@ def comtrade_fragment():
                 são analisados por meio da base de dados parquet EXP_PARTNERWORLD_COMTRADE.parquet.
                 
                 Por favor, insira uma base de dados válida para continuar.
-                """,
-            icon="ℹ️",
+                """
         )
     else:
         try:
@@ -41,11 +40,10 @@ def comtrade_fragment():
                 df = pd.read_parquet(BD)
             else:
                 df = pd.read_parquet(default_parquet)
-                st.info("Utilizando a base consolidada padrão (`indmundo/EXP_PARTNERWORLD_COMTRADE.parquet`).", icon="📊")
+                st.info("Utilizando a base consolidada padrão (`indmundo/EXP_PARTNERWORLD_COMTRADE.parquet`).")
         except Exception as e:
             st.error(
-                f"Erro: {e}. Você selecionou um arquivo EXP_PARTNERWORLD_COMTRADE.parquet válido? Verifique o arquivo enviado e tente novamente.",
-                icon="🚨",
+                f"Erro: {e}. Você selecionou um arquivo EXP_PARTNERWORLD_COMTRADE.parquet válido? Verifique o arquivo enviado e tente novamente."
             )
 
         with col1:
@@ -82,8 +80,7 @@ def comtrade_fragment():
 
             except Exception as e:
                 st.error(
-                    f"Erro: {e}. Você selecionou um arquivo válido? Verifique o arquivo enviado e tente novamente.",
-                    icon="🚨",
+                    f"Erro: {e}. Você selecionou um arquivo válido? Verifique o arquivo enviado e tente novamente."
                 )
 
         df = df.rename(
