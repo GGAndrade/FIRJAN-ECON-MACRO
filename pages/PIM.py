@@ -1,4 +1,10 @@
 import os
+import sys
+from pathlib import Path
+root_dir = str(Path(__file__).resolve().parent.parent)
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
 import json
 import streamlit as st
 import pandas as pd
@@ -132,6 +138,9 @@ def carregar_dados_pim(caminho_ou_arquivo):
     df["Data pt"] = df["Data"].dt.strftime("%m/%Y")
     df["Ano"] = df["Data"].dt.year
     df["VALOR"] = pd.to_numeric(df["VALOR"], errors="coerce")
+
+    # Desduplicar registros garantindo unicidade por Local, Data, Variavel e Subgrupo
+    df = df.drop_duplicates(subset=["LOCAL", "Data", "VARIAVEL", "SUBGRUPOS"], keep="last")
     return df
 
 
@@ -673,10 +682,11 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
         )
 
         df_tab_filtrada = df_tab[df_tab["Ano"] >= ano_corte]
-        df_pivot = df_tab_filtrada.pivot(
+        df_pivot = df_tab_filtrada.pivot_table(
             index="SUBGRUPOS",
             columns="Periodo",
             values="VALOR",
+            aggfunc="last",
         )
 
         setores_existentes = [s for s in todos_os_setores if s in df_pivot.index]
@@ -887,6 +897,18 @@ with tab_comp:
         if df_rank_uf.empty:
             st.info("Nenhum registro para o mês selecionado no ranking regional.")
         else:
+            def definir_cor_uf(row):
+                if row["LOCAL"] == "Rio de Janeiro":
+                    return "#0050c8"
+                elif row["LOCAL"] == "Brasil":
+                    return "#002d62"
+                elif row["VALOR"] >= 0:
+                    return "#38bdf8"
+                else:
+                    return "#b90e0c"
+
+            df_rank_uf["Cor_Barra"] = df_rank_uf.apply(definir_cor_uf, axis=1)
+
             graf_barras_uf = (
                 alt.Chart(df_rank_uf)
                 .mark_bar()
@@ -897,19 +919,7 @@ with tab_comp:
                         sort=alt.EncodingSortField(field="VALOR", order="descending"),
                         title="",
                     ),
-                    color=alt.condition(
-                        alt.datum.LOCAL == "Rio de Janeiro",
-                        alt.value("#0050c8"),  # Destaque azul Firjan para o RJ
-                        alt.condition(
-                            alt.datum.LOCAL == "Brasil",
-                            alt.value("#002d62"),  # Destaque azul marinho para o Brasil
-                            alt.condition(
-                                alt.datum.VALOR >= 0,
-                                alt.value("#38bdf8"),  # Azul suave para demais positivos
-                                alt.value("#b90e0c"),  # Vermelho para negativos
-                            ),
-                        ),
-                    ),
+                    color=alt.Color("Cor_Barra:N", scale=None),
                     tooltip=[
                         alt.Tooltip("LOCAL:N", title="Local"),
                         alt.Tooltip("VALOR:Q", title="Valor", format=".2f"),
