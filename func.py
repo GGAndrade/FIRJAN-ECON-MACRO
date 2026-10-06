@@ -89,19 +89,17 @@ def config_page(page_title):
         st.write("")
 
         pages_to_link = [
-            ("INICIO.py", "Início", ":material/home"),
-            ("pages/INDUSTRIA_NO_MUNDO.py", "Indústria no Mundo", ":material/public"),
-            ("pages/CAC_SHWEB.py", "CAC SHWEB", ":material/analytics"),
-            ("pages/PIM_BR.py", "PIM-BR", ":material/factory"),
+            ("INICIO.py", "Início"),
+            ("pages/INDUSTRIA_NO_MUNDO.py", "Indústria no Mundo"),
+            ("pages/CAC_SHWEB.py", "CAC SHWEB"),
+            ("pages/PIM_BR.py", "PIM-BR"),
+            ("pages/PIM.py", "PIM"),
         ]
-        for p_path, p_label, p_icon in pages_to_link:
+        for p_path, p_label in pages_to_link:
             try:
-                st.page_link(p_path, label=p_label, icon=p_icon)
+                st.page_link(p_path, label=p_label)
             except Exception:
-                try:
-                    st.page_link(p_path, label=p_label)
-                except Exception:
-                    pass
+                pass
 
     custom_style()
 
