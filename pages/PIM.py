@@ -212,19 +212,29 @@ locais_disponiveis = sorted(df_completo["LOCAL"].dropna().unique().tolist())
 def render_dashboard_uf(df_uf, nome_local, prefixo):
     """Renderiza a estrutura completa de análise industrial para a localidade especificada."""
 
-    # Seletor de Medida / Indicador
+    # Seletor de Medida / Indicador com valor padrão inteligente por abrangência
+    lista_medidas = list(opcoes_medidas.keys())
+    if nome_local != "Brasil" and "Variação acumulada no ano (%)" in lista_medidas:
+        idx_padrao_medida = lista_medidas.index("Variação acumulada no ano (%)")
+    else:
+        idx_padrao_medida = 0
+
     col_med1, _ = st.columns([2, 1])
     with col_med1:
         medida_label = st.selectbox(
             label="Medida / Indicador",
-            options=list(opcoes_medidas.keys()),
-            index=0,
+            options=lista_medidas,
+            index=idx_padrao_medida,
             key=f"{prefixo}_medida",
             help=f"Selecione o indicador da PIM que deseja analisar para {nome_local}.",
         )
         var_escolhida = opcoes_medidas[medida_label]
 
-    df_var = df_uf[df_uf["VARIAVEL"] == var_escolhida].copy()
+    df_var = (
+        df_uf[df_uf["VARIAVEL"] == var_escolhida]
+        .drop_duplicates(subset=["Data", "SUBGRUPOS"], keep="last")
+        .copy()
+    )
 
     # ----------------------------------------------------
     # QUADRO INTEGRADO: PANORAMA DA INDÚSTRIA
@@ -238,7 +248,9 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
 
         def extrair_metrica(termo):
             sub = df_sub[
-                df_sub["VARIAVEL"].str.contains(termo, case=False, na=False, regex=False)
+                df_sub["VARIAVEL"].str.contains("Varia", case=False, na=False, regex=False)
+                & df_sub["VARIAVEL"].str.contains(termo, case=False, na=False, regex=False)
+                & ~df_sub["VARIAVEL"].str.contains("Influ", case=False, na=False, regex=False)
             ].dropna(subset=["VALOR"])
             if not sub.empty:
                 ult = sub.sort_values("Data").iloc[-1]
@@ -611,9 +623,25 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
 
     df_ranking = df_ranking.dropna(subset=["VALOR"]).sort_values("VALOR", ascending=False)
 
+    if len(df_ranking) <= 1 and nome_local != "Brasil":
+        st.info(
+            f"**Nota Metodológica (IBGE - PIM Regional):** O IBGE calcula a série com ajuste sazonal (M/M-1) "
+            f"exclusivamente para a **Indústria Geral** nas pesquisas regionais ({nome_local}). "
+            f"Para visualizar a comparação detalhada entre todos os 17 ramos de atividade da indústria, "
+            f"selecione no seletor de Medida acima a **Variação acumulada no ano (%)** ou a **Variação M/M-12 (%)**."
+        )
+
     if df_ranking.empty:
-        st.info("Nenhum dado encontrado para o mês selecionado.")
+        st.info(
+            "Nenhum ramo desagregado disponível para esta métrica no mês selecionado. "
+            "Selecione 'Todos os setores' ou altere a métrica para 'Variação acumulada no ano (%)' ou 'Variação M/M-12 (%)'."
+        )
     else:
+        df_ranking = df_ranking.copy()
+        df_ranking["Cor_Barra"] = df_ranking["VALOR"].apply(
+            lambda v: "#002d62" if v >= 0 else "#b90e0c"
+        )
+
         grafico_barras = (
             alt.Chart(df_ranking)
             .mark_bar()
@@ -624,29 +652,34 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                     sort=alt.EncodingSortField(field="VALOR", order="descending"),
                     title="",
                 ),
-                color=alt.condition(
-                    alt.datum.VALOR >= 0,
-                    alt.value("#002d62"),  # Azul Firjan Institucional
-                    alt.value("#b90e0c"),  # Vermelho para variações negativas
-                ),
+                color=alt.Color("Cor_Barra:N", scale=None, legend=None),
                 tooltip=[
                     alt.Tooltip("SUBGRUPOS:N", title="Setor"),
                     alt.Tooltip("VALOR:Q", title="Valor", format=".2f"),
                 ],
             )
-            .properties(height=max(380, len(df_ranking) * 25))
+            .properties(height=max(380, len(df_ranking) * 26))
         )
 
-        rotulos_barras = grafico_barras.mark_text(
-            align=alt.expr("datum.VALOR >= 0 ? 'left' : 'right'"),
-            dx=alt.expr("datum.VALOR >= 0 ? 6 : -6"),
-            fontSize=11,
-        ).encode(
-            text=alt.Text(
-                "VALOR:Q",
-                format="+.2f" if "%" in medida_label or "p.p." in medida_label else ".2f",
-            ),
-            color=alt.value("#1e293b"),
+        rotulos_barras = (
+            alt.Chart(df_ranking)
+            .mark_text(
+                align=alt.expr("datum.VALOR >= 0 ? 'left' : 'right'"),
+                dx=alt.expr("datum.VALOR >= 0 ? 6 : -6"),
+                fontSize=11,
+            )
+            .encode(
+                x="VALOR:Q",
+                y=alt.Y(
+                    "SUBGRUPOS:N",
+                    sort=alt.EncodingSortField(field="VALOR", order="descending"),
+                ),
+                text=alt.Text(
+                    "VALOR:Q",
+                    format="+.2f" if "%" in medida_label or "p.p." in medida_label else ".2f",
+                ),
+                color=alt.value("#1e293b"),
+            )
         )
 
         grafico_barras_final = grafico_barras + rotulos_barras
@@ -789,7 +822,11 @@ with tab_comp:
         )
         var_comp = opcoes_medidas[medida_comp_label]
 
-    df_comp_var = df_completo[df_completo["VARIAVEL"] == var_comp].copy()
+    df_comp_var = (
+        df_completo[df_completo["VARIAVEL"] == var_comp]
+        .drop_duplicates(subset=["LOCAL", "Data", "SUBGRUPOS"], keep="last")
+        .copy()
+    )
 
     # Setores comuns disponíveis
     setores_comp = sorted(df_comp_var["SUBGRUPOS"].dropna().unique().tolist())

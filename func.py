@@ -207,6 +207,13 @@ header_cni = header_firjan
 
 
 def footer_firjan():
+    try:
+        _render_footer_firjan()
+    except Exception:
+        pass
+
+
+def _render_footer_firjan():
     st.write("---")
 
     b64_firjan = get_base64_image("assets/brd-firjan-sitemap.png")
