@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import altair as alt
 from func import (
+    check_password,
     config_page,
     header_firjan,
     footer_firjan,
@@ -18,6 +19,11 @@ from func import (
 # Configuração da página e identidade visual Firjan
 config_page("PIM-BR | Firjan - GEE")
 header_firjan()
+
+# Verificação de segurança por senha
+if not check_password():
+    footer_firjan()
+    st.stop()
 
 # Carregar formatações pt-BR para Altair caso existam no diretório
 pt_format = None
