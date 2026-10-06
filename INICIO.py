@@ -12,11 +12,11 @@ if not check_password():
 
 # Título Principal solicitado
 st.write("# **Dados MACRO**")
-st.markdown("### **Gerência Executiva de Economia (GEE) — Firjan**")
+st.markdown("### **Gerência de Estudos Econômicos (GEE) — Firjan**")
 
 st.markdown(
     """
-    Esse é o app de dados gerais e análises macroeconômicas da **Gerência Executiva de Economia (GEE) da Firjan**. 
+    Esse é o app de dados gerais e análises macroeconômicas da **Gerência de Estudos Econômicos (GEE) da Firjan**. 
     Sua proposta é oferecer entregas digitais de dashboards, indicadores e aplicações analíticas para áreas internas da 
     **Firjan, CIRJ, SESI, SENAI e IEL**, empresas associadas e o público externo.
     """
@@ -33,7 +33,7 @@ with col_resp1:
             <div style="font-size: 14px; text-transform: uppercase; color: #555; font-weight: 600;">Responsabilidade Técnica</div>
             <div style="font-size: 18px; font-weight: 700; color: #002d62; margin-top: 5px;">Gerlane Andrade</div>
             <div style="font-size: 14px; color: #333; margin-top: 2px;">Especialista em Estudos de Competitividade</div>
-            <div style="font-size: 13px; color: #666; margin-top: 6px;">Gerência Executiva de Economia — Firjan</div>
+            <div style="font-size: 13px; color: #666; margin-top: 6px;">Gerência de Estudos Econômicos — Firjan</div>
         </div>
         """,
         unsafe_allow_html=True,

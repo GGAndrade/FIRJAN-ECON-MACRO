@@ -196,7 +196,7 @@ def header_firjan():
                 FIRJAN &nbsp;|&nbsp; CIRJ &nbsp;|&nbsp; SESI &nbsp;|&nbsp; SENAI &nbsp;|&nbsp; IEL
             </div>
             <div style="font-size: 13px; font-weight: 600; opacity: 0.95; background: rgba(255,255,255,0.18); padding: 5px 14px; border-radius: 6px; letter-spacing: 0.3px;">
-                GEE &bull; Gerência Executiva de Economia
+                GEE &bull; Gerência de Estudos Econômicos
             </div>
         </div>
         """,

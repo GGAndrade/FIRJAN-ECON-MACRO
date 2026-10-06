@@ -45,7 +45,7 @@ st.markdown(hide_table_row_index, unsafe_allow_html=True)
 
 """
 # Desempenho da indústria no mundo: Firjan
-Desempenho da indústria no mundo é um estudo e monitoramento contínuo da **Gerência Executiva de Economia (GEE) da Firjan** com análise dos dados da **UNIDO** e **OCDE**, medindo a evolução da relevância da indústria brasileira para a produção e para o comércio exterior global.
+Desempenho da indústria no mundo é um estudo e monitoramento contínuo da **Gerência de Estudos Econômicos (GEE) da Firjan** com análise dos dados da **UNIDO** e **OCDE**, medindo a evolução da relevância da indústria brasileira para a produção e para o comércio exterior global.
 """
 
 # Abas

@@ -1,6 +1,6 @@
 # Dashboard Econômico - Firjan
 
-Aplicação interativa de visualização e análise de dados macroeconômicos e indicadores da indústria da **Gerência Executiva de Economia (GEE)** da **Firjan**, desenvolvida com **Streamlit**.
+Aplicação interativa de visualização e análise de dados macroeconômicos e indicadores da indústria da **Gerência de Estudos Econômicos (GEE)** da **Firjan**, desenvolvida com **Streamlit**.
 
 ---
 

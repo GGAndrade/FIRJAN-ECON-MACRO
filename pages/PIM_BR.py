@@ -47,7 +47,7 @@ st.write("# Produção Física Industrial (PIM-PF Brasil)")
 st.markdown(
     """
     Monitoramento contínuo da **Produção Física Industrial brasileira** por seções e atividades industriais 
-    (IBGE - Tabela 8888), com análise e consolidação da **Gerência Executiva de Economia (GEE) da Firjan**.
+    (IBGE - Tabela 8888), com análise e consolidação da **Gerência de Estudos Econômicos (GEE) da Firjan**.
     """
 )
 st.write("---")
