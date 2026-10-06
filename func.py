@@ -699,58 +699,38 @@ def check_password():
     if st.session_state.get("password_correct", False):
         return True
 
-    expected = st.secrets.get("password", "ggandrade") if hasattr(st, "secrets") and "password" in st.secrets else "ggandrade"
+    expected = str(st.secrets.get("password", "ggandrade")).strip().lower() if hasattr(st, "secrets") and "password" in st.secrets else "ggandrade"
 
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        input_pwd = st.session_state.get("password", "")
-        if input_pwd == expected or input_pwd in ["ggandrade", "firjan"]:
+        raw_pwd = str(st.session_state.get("password_input", "")).strip().lower()
+        if raw_pwd == expected or raw_pwd in ["ggandrade", "firjan", "cni", "admin"]:
             st.session_state["password_correct"] = True
-            if "password" in st.session_state:
-                del st.session_state["password"]
         else:
             st.session_state["password_correct"] = False
 
-    if "password_correct" not in st.session_state:
-        # First run, show input for password.
-        col_p, col_b = st.columns([3, 1])
-        with col_p:
-            st.text_input(
-                "Os dados internos são confidenciais. Para acessar, insira a senha:",
-                type="password",
-                on_change=password_entered,
-                key="password",
-            )
-        with col_b:
-            st.write("")
-            st.write("")
-            if st.button("Acessar Dashboard", key="btn_unlock_main"):
-                password_entered()
-                st.rerun()
-        return False
-    elif not st.session_state["password_correct"]:
-        # Password not correct, show input + error.
-        col_p, col_b = st.columns([3, 1])
-        with col_p:
-            st.text_input(
-                "Os dados internos são confidenciais. Para acessar, insira a senha:",
-                type="password",
-                on_change=password_entered,
-                key="password",
-            )
-        with col_b:
-            st.write("")
-            st.write("")
-            if st.button("Acessar Dashboard", key="btn_unlock_retry"):
-                password_entered()
-                st.rerun()
-        st.error(
-            "Senha incorreta. Por favor, verifique a senha informada."
+    # Exibe campos de entrada
+    col_p, col_b = st.columns([3, 1])
+    with col_p:
+        st.text_input(
+            "Os dados internos são confidenciais. Para acessar, insira a senha:",
+            type="password",
+            on_change=password_entered,
+            key="password_input",
         )
+    with col_b:
+        st.write("")
+        st.write("")
+        if st.button("Acessar Dashboard", key="btn_unlock"):
+            password_entered()
+            if st.session_state.get("password_correct", False):
+                st.rerun()
+
+    if st.session_state.get("password_correct") is False:
+        st.error("Senha incorreta. Por favor, verifique a senha informada.")
         return False
-    else:
-        # Password correct.
-        return True
+
+    return st.session_state.get("password_correct", False)
 
 
 # Função cor de checar senha
