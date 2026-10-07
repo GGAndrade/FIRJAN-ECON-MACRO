@@ -48,6 +48,35 @@ if os.path.exists("pt-BR-time-format.json"):
     except Exception:
         pass
 
+
+def calcular_offsets_anti_colisao(y_values, y_min, y_max, height=450, min_gap=30):
+    """Calcula deslocamentos verticais (dy em pixels) para evitar sobreposição de rótulos terminais."""
+    n = len(y_values)
+    if n <= 1:
+        return [0.0] * n
+    span = y_max - y_min if y_max != y_min else 1.0
+    px = [height * (1.0 - (v - y_min) / span) for v in y_values]
+    idx_sorted = sorted(range(n), key=lambda i: px[i])
+    target_px = [px[i] for i in idx_sorted]
+    for _ in range(60):
+        changed = False
+        for k in range(n - 1):
+            gap = target_px[k + 1] - target_px[k]
+            if gap < min_gap:
+                overlap = (min_gap - gap) / 2.0
+                target_px[k] -= overlap
+                target_px[k + 1] += overlap
+                changed = True
+        for k in range(n):
+            target_px[k] = max(18.0, min(height - 18.0, target_px[k]))
+        if not changed:
+            break
+    dy = [0.0] * n
+    for orig_idx, final_p in zip(idx_sorted, target_px):
+        dy[orig_idx] = round(final_p - px[orig_idx], 1)
+    return dy
+
+
 # Estilos CSS corporativos com paleta de azuis da Firjan e sem ícones
 st.markdown(
     """
@@ -451,7 +480,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
         if not anos_totais:
             st.info("Nenhum dado temporal disponível para os setores selecionados.")
         else:
-            ano_inicio_default = max(min(anos_totais), max(anos_totais) - 8)
+            ano_inicio_default = min(anos_totais)
 
             ano_inicial, ano_final = st.select_slider(
                 "Intervalo (Anos)",
@@ -476,6 +505,12 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                 eixo_y_min -= margem_y
                 eixo_y_max += margem_y
 
+                anos_span = ano_final - ano_inicial + 1
+                meses_ext = max(4, int(anos_span * 2.2))
+                data_min_graf = df_graf_linha["Data"].min()
+                data_max_graf = df_graf_linha["Data"].max()
+                data_max_ext = data_max_graf + pd.DateOffset(months=meses_ext)
+
                 grafico_linha = (
                     alt.Chart(df_graf_linha)
                     .mark_line(strokeWidth=2.8)
@@ -483,6 +518,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         x=alt.X(
                             "Data:T",
                             axis=alt.Axis(format="%m/%Y", labelAngle=-45, title="Mês/Ano"),
+                            scale=alt.Scale(domain=[data_min_graf, data_max_ext]),
                         ),
                         y=alt.Y(
                             "VALOR:Q",
@@ -562,9 +598,15 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             dif_max_hist = dif_max_per
                             dif_min_hist = dif_min_per
 
-                        r_max["Rotulo"] = f"Máx: {fmt_val(v_max_per)} ({r_max['Data pt']})"
-                        r_min["Rotulo"] = f"Mín: {fmt_val(v_min_per)} ({r_min['Data pt']})"
+                        # Pontos históricos de Máximo e Mínimo (apenas se anteriores ao ponto final)
+                        if idx_max_per != idx_ult:
+                            r_max["Rotulo"] = f"Máx: {fmt_val(v_max_per)} ({r_max['Data pt']})"
+                            max_list.append(r_max)
+                        if idx_min_per != idx_ult:
+                            r_min["Rotulo"] = f"Mín: {fmt_val(v_min_per)} ({r_min['Data pt']})"
+                            min_list.append(r_min)
 
+                        # Ponto terminal com rótulo empilhado à direita
                         r_ult_dict = dict(r_ult)
                         r_ult_dict["Dif_Max_Per"] = fmt_dif(dif_max_per)
                         r_ult_dict["Dif_Min_Per"] = fmt_dif(dif_min_per)
@@ -572,19 +614,15 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         r_ult_dict["Dif_Min_Hist"] = fmt_dif(dif_min_hist)
                         r_ult_dict["Val_Formatado"] = fmt_val(v_ult)
 
-                        if idx_ult == idx_max_per:
-                            r_max["Rotulo"] = f"Máx (Últ): {fmt_val(v_max_per)} ({r_max['Data pt']}) [ΔMín: {fmt_dif(dif_min_per)}]"
+                        if idx_ult == idx_max_per and idx_ult == idx_min_per:
+                            r_ult_dict["Rotulo"] = f"Últ: {fmt_val(v_ult)}"
+                        elif idx_ult == idx_max_per:
+                            r_ult_dict["Rotulo"] = f"Últ (Máx): {fmt_val(v_ult)}\nDif. Mín: {fmt_dif(dif_min_per)}"
                         elif idx_ult == idx_min_per:
-                            r_min["Rotulo"] = f"Mín (Últ): {fmt_val(v_min_per)} ({r_min['Data pt']}) [ΔMáx: {fmt_dif(dif_max_per)}]"
+                            r_ult_dict["Rotulo"] = f"Últ (Mín): {fmt_val(v_ult)}\nDif. Máx: {fmt_dif(dif_max_per)}"
                         else:
-                            if len(setores_selecionados) <= 2:
-                                r_ult_dict["Rotulo"] = f"Últ: {fmt_val(v_ult)} ({r_ult['Data pt']}) [ΔMáx: {fmt_dif(dif_max_per)} | ΔMín: {fmt_dif(dif_min_per)}]"
-                            else:
-                                r_ult_dict["Rotulo"] = f"Últ: {fmt_val(v_ult)} [ΔMáx: {fmt_dif(dif_max_per)}]"
-                            ult_list.append(r_ult_dict)
-
-                        max_list.append(r_max)
-                        min_list.append(r_min)
+                            r_ult_dict["Rotulo"] = f"Últ: {fmt_val(v_ult)}\nDif. Máx: {fmt_dif(dif_max_per)}\nDif. Mín: {fmt_dif(dif_min_per)}"
+                        ult_list.append(r_ult_dict)
 
                         resumo_extremos.append(
                             {
@@ -604,6 +642,11 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                 df_max = pd.DataFrame(max_list)
                 df_min = pd.DataFrame(min_list)
                 df_ult = pd.DataFrame(ult_list)
+                if not df_ult.empty:
+                    df_ult["dy"] = calcular_offsets_anti_colisao(
+                        df_ult["VALOR"].tolist(), eixo_y_min, eixo_y_max, height=450, min_gap=30
+                    )
+
                 camadas = [grafico_linha]
 
                 if not df_max.empty:
@@ -681,11 +724,20 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                     )
                     rotulos_ult = (
                         alt.Chart(df_ult)
-                        .mark_text(fontSize=11, fontWeight="bold", dy=-14, align="center")
+                        .mark_text(
+                            lineBreak="\n",
+                            lineHeight=11,
+                            fontSize=9.5,
+                            fontWeight="bold",
+                            align="left",
+                            baseline="middle",
+                            dx=10,
+                        )
                         .encode(
                             x="Data:T",
                             y="VALOR:Q",
                             text="Rotulo:N",
+                            yOffset="dy:Q",
                             color=alt.Color("SUBGRUPOS:N", legend=None),
                         )
                     )
@@ -1044,7 +1096,7 @@ with tab_comp:
         anos_comp = sorted(df_serie_comp["Ano"].dropna().unique().astype(int).tolist())
 
         if anos_comp:
-            ano_ini_default_comp = max(min(anos_comp), max(anos_comp) - 6)
+            ano_ini_default_comp = min(anos_comp)
             ano_ini_comp, ano_fim_comp = st.select_slider(
                 "Intervalo temporal (Anos)",
                 options=anos_comp,
@@ -1098,11 +1150,21 @@ with tab_comp:
             eixo_y_min_comp -= margem_y_comp
             eixo_y_max_comp += margem_y_comp
 
+            anos_span_comp = ano_fim_comp - ano_ini_comp + 1
+            meses_ext_comp = max(4, int(anos_span_comp * 2.2))
+            data_min_comp = df_serie_comp["Data"].min()
+            data_max_comp = df_serie_comp["Data"].max()
+            data_max_ext_comp = data_max_comp + pd.DateOffset(months=meses_ext_comp)
+
             graf_comp_linhas = (
                 alt.Chart(df_serie_comp)
                 .mark_line(strokeWidth=2.6)
                 .encode(
-                    x=alt.X("Data:T", axis=alt.Axis(format="%m/%Y", labelAngle=-45, title="Mês/Ano")),
+                    x=alt.X(
+                        "Data:T",
+                        axis=alt.Axis(format="%m/%Y", labelAngle=-45, title="Mês/Ano"),
+                        scale=alt.Scale(domain=[data_min_comp, data_max_ext_comp]),
+                    ),
                     y=alt.Y(
                         "VALOR:Q",
                         scale=alt.Scale(domain=[eixo_y_min_comp, eixo_y_max_comp]),
@@ -1185,9 +1247,15 @@ with tab_comp:
                         dif_max_hist = dif_max_per
                         dif_min_hist = dif_min_per
 
-                    r_max["Rotulo"] = f"Máx: {fmt_val_comp(v_max_per)} ({r_max['Data pt']})"
-                    r_min["Rotulo"] = f"Mín: {fmt_val_comp(v_min_per)} ({r_min['Data pt']})"
+                    # Pontos históricos de Máximo e Mínimo (apenas se anteriores ao ponto final)
+                    if idx_max_uf != idx_ult:
+                        r_max["Rotulo"] = f"Máx: {fmt_val_comp(v_max_per)} ({r_max['Data pt']})"
+                        max_uf_list.append(r_max)
+                    if idx_min_uf != idx_ult:
+                        r_min["Rotulo"] = f"Mín: {fmt_val_comp(v_min_per)} ({r_min['Data pt']})"
+                        min_uf_list.append(r_min)
 
+                    # Ponto terminal com rótulo empilhado à direita
                     r_ult_dict = dict(r_ult)
                     r_ult_dict["Dif_Max_Per"] = fmt_dif_comp(dif_max_per)
                     r_ult_dict["Dif_Min_Per"] = fmt_dif_comp(dif_min_per)
@@ -1195,19 +1263,15 @@ with tab_comp:
                     r_ult_dict["Dif_Min_Hist"] = fmt_dif_comp(dif_min_hist)
                     r_ult_dict["Val_Formatado"] = fmt_val_comp(v_ult)
 
-                    if idx_ult == idx_max_uf:
-                        r_max["Rotulo"] = f"Máx (Últ): {fmt_val_comp(v_max_per)} ({r_max['Data pt']}) [ΔMín: {fmt_dif_comp(dif_min_per)}]"
+                    if idx_ult == idx_max_uf and idx_ult == idx_min_uf:
+                        r_ult_dict["Rotulo"] = f"Últ: {fmt_val_comp(v_ult)}"
+                    elif idx_ult == idx_max_uf:
+                        r_ult_dict["Rotulo"] = f"Últ (Máx): {fmt_val_comp(v_max_per)}\nDif. Mín: {fmt_dif_comp(dif_min_per)}"
                     elif idx_ult == idx_min_uf:
-                        r_min["Rotulo"] = f"Mín (Últ): {fmt_val_comp(v_min_per)} ({r_min['Data pt']}) [ΔMáx: {fmt_dif_comp(dif_max_per)}]"
+                        r_ult_dict["Rotulo"] = f"Últ (Mín): {fmt_val_comp(v_min_per)}\nDif. Máx: {fmt_dif_comp(dif_max_per)}"
                     else:
-                        if len(ufs_selecionadas_comp) <= 2:
-                            r_ult_dict["Rotulo"] = f"Últ: {fmt_val_comp(v_ult)} ({r_ult['Data pt']}) [ΔMáx: {fmt_dif_comp(dif_max_per)} | ΔMín: {fmt_dif_comp(dif_min_per)}]"
-                        else:
-                            r_ult_dict["Rotulo"] = f"Últ: {fmt_val_comp(v_ult)} [ΔMáx: {fmt_dif_comp(dif_max_per)}]"
-                        ult_uf_list.append(r_ult_dict)
-
-                    max_uf_list.append(r_max)
-                    min_uf_list.append(r_min)
+                        r_ult_dict["Rotulo"] = f"Últ: {fmt_val_comp(v_ult)}\nDif. Máx: {fmt_dif_comp(dif_max_per)}\nDif. Mín: {fmt_dif_comp(dif_min_per)}"
+                    ult_uf_list.append(r_ult_dict)
 
                     resumo_extremos_uf.append(
                         {
@@ -1227,6 +1291,11 @@ with tab_comp:
             df_max_uf = pd.DataFrame(max_uf_list)
             df_min_uf = pd.DataFrame(min_uf_list)
             df_ult_uf = pd.DataFrame(ult_uf_list)
+            if not df_ult_uf.empty:
+                df_ult_uf["dy"] = calcular_offsets_anti_colisao(
+                    df_ult_uf["VALOR"].tolist(), eixo_y_min_comp, eixo_y_max_comp, height=450, min_gap=30
+                )
+
             camadas_uf = [graf_comp_linhas]
 
             if not df_max_uf.empty:
@@ -1324,11 +1393,20 @@ with tab_comp:
                 )
                 rotulos_ult_uf = (
                     alt.Chart(df_ult_uf)
-                    .mark_text(fontSize=11, fontWeight="bold", dy=-14, align="center")
+                    .mark_text(
+                        lineBreak="\n",
+                        lineHeight=11,
+                        fontSize=9.5,
+                        fontWeight="bold",
+                        align="left",
+                        baseline="middle",
+                        dx=10,
+                    )
                     .encode(
                         x="Data:T",
                         y="VALOR:Q",
                         text="Rotulo:N",
+                        yOffset="dy:Q",
                         color=alt.Color(
                             "LOCAL:N",
                             scale=alt.Scale(domain=ufs_selecionadas_comp, range=cores_selecionadas),
