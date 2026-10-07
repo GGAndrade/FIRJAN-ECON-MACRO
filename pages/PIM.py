@@ -251,7 +251,22 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
     # ----------------------------------------------------
     # QUADRO INTEGRADO: PANORAMA DA INDÚSTRIA
     # ----------------------------------------------------
-    def extrair_indicadores(subgrupo_termo):
+    # Determinar a data de referência oficial mais recente com dados consolidados da localidade
+    # Prioriza as métricas principais da Indústria Geral (M/M-12, Acumulado no Ano ou Número-índice)
+    sub_ref = df_uf[
+        df_uf["SUBGRUPOS"].str.contains("1 Ind", case=False, na=False, regex=False)
+        & df_uf["VARIAVEL"].str.contains("mesmo m|acumulada no ano|Número-índice|Numero-indice", case=False, na=False, regex=True)
+        & ~df_uf["VARIAVEL"].str.contains("Influ", case=False, na=False, regex=False)
+    ].dropna(subset=["VALOR"])
+
+    if not sub_ref.empty:
+        data_ref = sub_ref["Data"].max()
+    else:
+        data_ref = df_uf.dropna(subset=["VALOR"])["Data"].max()
+
+    data_ref_label = data_ref.strftime("%m/%Y")
+
+    def extrair_indicadores(subgrupo_termo, target_date):
         df_sub = df_uf[
             df_uf["SUBGRUPOS"].str.contains(subgrupo_termo, case=False, na=False, regex=False)
         ]
@@ -263,26 +278,23 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                 df_sub["VARIAVEL"].str.contains("Varia", case=False, na=False, regex=False)
                 & df_sub["VARIAVEL"].str.contains(termo, case=False, na=False, regex=False)
                 & ~df_sub["VARIAVEL"].str.contains("Influ", case=False, na=False, regex=False)
+                & (df_sub["Data"] == target_date)
             ].dropna(subset=["VALOR"])
             if not sub.empty:
-                ult = sub.sort_values("Data").iloc[-1]
+                ult = sub.iloc[-1]
                 return ult["VALOR"], ult["Data pt"]
             return None, None
 
         return {
-            "mm1": extrair_metrica("imediatamente anterior, com ajuste sazonal (M/M-1)"),
+            "mm1": extrair_metrica("imediatamente anterior"),
             "m12": extrair_metrica("mesmo m"),
             "ano": extrair_metrica("acumulada no ano"),
             "12m": extrair_metrica("acumulada em 12 meses"),
         }
 
-    dados_ig = extrair_indicadores("1 Ind")
-    dados_ext = extrair_indicadores("2 Ind")
-    dados_transf = extrair_indicadores("3 Ind")
-
-    # Data de referência de referência mais recente encontrada para a Indústria Geral
-    datas_ref = [d[1] for d in dados_ig.values() if d[1] is not None]
-    data_ref_label = datas_ref[0] if datas_ref else df_uf["Data pt"].max()
+    dados_ig = extrair_indicadores("1 Ind", data_ref)
+    dados_ext = extrair_indicadores("2 Ind", data_ref)
+    dados_transf = extrair_indicadores("3 Ind", data_ref)
 
     with st.container(border=True):
         # 1. Indústria Geral
