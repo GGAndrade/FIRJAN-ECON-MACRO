@@ -103,6 +103,18 @@ st.markdown(
         border-bottom-color: #002d62 !important;
         border-bottom-width: 3px !important;
     }
+    /* Notas metodológicas institucionais discretas em fonte reduzida */
+    .nota-metodologica {
+        font-size: 0.80rem !important;
+        line-height: 1.45 !important;
+        color: #334155 !important;
+        background-color: #f8fafc !important;
+        border-left: 3px solid #0050c8 !important;
+        padding: 7px 13px !important;
+        border-radius: 0 4px 4px 0 !important;
+        margin-top: 8px !important;
+        margin-bottom: 12px !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -383,12 +395,17 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                 )
 
     if nome_local != "Brasil":
-        st.info(
-            f"**Nota Metodológica (IBGE - PIM Regional):** O IBGE calcula e divulga a série com ajuste sazonal (M/M-1) "
-            f"exclusivamente para a **Indústria Geral** nas pesquisas regionais ({nome_local}). "
-            f"Por esse motivo metodológico oficial, a variação mensal com ajuste sazonal para a **Indústria Extrativa** "
-            f"e a **Indústria de Transformação** consta como **N/D** (Não Disponível). Para a análise desses setores específicos, "
-            f"utilize as métricas sem ajuste sazonal: **Variação interanual (M/M-12)**, **Acumulado no Ano** e **Acumulado em 12 Meses**."
+        st.markdown(
+            f'<div class="nota-metodologica">'
+            f'<strong>Nota Metodológica (IBGE - PIM Regional):</strong> O IBGE calcula a série com ajuste sazonal (M/M-1) '
+            f'exclusivamente para a <strong>Indústria Geral</strong> no âmbito regional ({nome_local}). '
+            f'Para os setores específicos (<strong>Indústria Extrativa</strong> e <strong>Indústria de Transformação</strong>), '
+            f'a pesquisa regional não dispõe de modelo de dessazonalização, razão pela qual a métrica consta como <strong>N/D</strong>. '
+            f'O acompanhamento setorial nesses segmentos é realizado com base nos indicadores da <strong>série original</strong> '
+            f'(<em>Variação interanual M/M-12</em>, <em>Acumulado no Ano</em> e <em>Acumulado em 12 Meses</em>), '
+            f'nas quais a sazonalidade é naturalmente neutralizada pela comparação entre períodos homólogos.'
+            f'</div>',
+            unsafe_allow_html=True,
         )
 
     st.write("---")
@@ -639,11 +656,14 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
     df_ranking = df_ranking.dropna(subset=["VALOR"]).sort_values("VALOR", ascending=False)
 
     if "ajuste sazonal" in medida_label.lower() and len(df_ranking) <= 1 and nome_local != "Brasil":
-        st.info(
-            f"**Nota Metodológica (IBGE - PIM Regional):** O IBGE calcula a série com ajuste sazonal (M/M-1) "
-            f"exclusivamente para a **Indústria Geral** nas pesquisas regionais ({nome_local}). "
-            f"Para visualizar a comparação detalhada entre todos os 17 ramos de atividade da indústria, "
-            f"selecione no seletor de Medida acima a **Variação acumulada no ano (%)** ou a **Variação M/M-12 (%)**."
+        st.markdown(
+            f'<div class="nota-metodologica">'
+            f'<strong>Nota Metodológica (IBGE - PIM Regional):</strong> O IBGE calcula a série com ajuste sazonal (M/M-1) '
+            f'exclusivamente para a <strong>Indústria Geral</strong> nas pesquisas regionais ({nome_local}). '
+            f'Para analisar a comparação detalhada entre os ramos de atividade da indústria, selecione indicadores da '
+            f'<strong>série original</strong>, tais como a <strong>Variação acumulada no ano (%)</strong> ou a <strong>Variação M/M-12 (%)</strong>.'
+            f'</div>',
+            unsafe_allow_html=True,
         )
 
     if df_ranking.empty:
@@ -889,12 +909,15 @@ with tab_comp:
         mes_comp = mapa_datas_comp[mes_comp_str] if mapa_datas_comp else None
 
     if "ajuste sazonal" in medida_comp_label.lower() and not setor_comp_escolhido.startswith("1 Ind"):
-        st.info(
-            f"**Nota Metodológica (IBGE - PIM Regional):** O IBGE calcula a série com ajuste sazonal (M/M-1) "
-            f"exclusivamente para a **Indústria Geral** no âmbito regional. Para setores específicos "
-            f"(como **{setor_comp_escolhido}**), a série com ajuste sazonal é disponibilizada exclusivamente para o "
-            f"**Brasil consolidado**. Para comparar as UFs neste setor, selecione uma métrica sem ajuste "
-            f"sazonal, como a **Variação acumulada no ano (%)** ou a **Variação M/M-12 (%)**."
+        st.markdown(
+            f'<div class="nota-metodologica">'
+            f'<strong>Nota Metodológica (IBGE - PIM Regional):</strong> O IBGE calcula a série com ajuste sazonal (M/M-1) '
+            f'exclusivamente para a <strong>Indústria Geral</strong> no âmbito regional. Para setores específicos '
+            f'(como <strong>{setor_comp_escolhido}</strong>), a série com ajuste sazonal é calculada exclusivamente para o '
+            f'<strong>Brasil consolidado</strong>. Para comparar as UFs neste setor, utilize os indicadores da '
+            f'<strong>série original</strong>, tais como a <strong>Variação acumulada no ano (%)</strong> ou a <strong>Variação M/M-12 (%)</strong>.'
+            f'</div>',
+            unsafe_allow_html=True,
         )
 
     # Multiselect de UFs para a série temporal
@@ -1149,11 +1172,14 @@ with tab_comp:
         )
 
         if len(df_rank_uf) <= 1 and not df_rank_uf.empty:
-            st.info(
-                f"**Aviso de Divulgação (IBGE):** Para o mês de **{mes_comp_str}**, apenas o "
-                f"**Brasil consolidado** possui dados divulgados até o momento. "
-                f"Para comparar o ranking regional entre todos os estados (Rio de Janeiro, São Paulo, Minas Gerais, etc.), "
-                f"selecione no campo 'Mês de Referência para o Ranking' acima uma data com divulgação regional completa (ex.: 07/2026)."
+            st.markdown(
+                f'<div class="nota-metodologica">'
+                f'<strong>Aviso de Divulgação (IBGE):</strong> Para o mês de <strong>{mes_comp_str}</strong>, apenas o '
+                f'<strong>Brasil consolidado</strong> possui dados divulgados até o momento. '
+                f'Para comparar o ranking regional entre todos os estados (Rio de Janeiro, São Paulo, Minas Gerais, etc.), '
+                f'selecione no campo <em>Mês de Referência para o Ranking</em> acima uma data com divulgação regional completa (ex.: 07/2026).'
+                f'</div>',
+                unsafe_allow_html=True,
             )
 
         if df_rank_uf.empty:
