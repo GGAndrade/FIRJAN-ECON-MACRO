@@ -592,7 +592,10 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
     # ----------------------------------------------------
     st.write("#### Comparação setorial no período selecionado")
 
-    datas_unicas = sorted(df_var["Data"].dropna().unique().tolist(), reverse=True)
+    df_var_valido = df_var.dropna(subset=["VALOR"])
+    datas_unicas = sorted(df_var_valido["Data"].unique().tolist(), reverse=True)
+    if not datas_unicas:
+        datas_unicas = sorted(df_var["Data"].dropna().unique().tolist(), reverse=True)
     mapa_datas = {d.strftime("%m/%Y"): d for d in pd.to_datetime(datas_unicas)}
 
     col_r1, col_r2 = st.columns([1, 1])
@@ -623,7 +626,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
 
     df_ranking = df_ranking.dropna(subset=["VALOR"]).sort_values("VALOR", ascending=False)
 
-    if len(df_ranking) <= 1 and nome_local != "Brasil":
+    if "ajuste sazonal" in medida_label.lower() and len(df_ranking) <= 1 and nome_local != "Brasil":
         st.info(
             f"**Nota Metodológica (IBGE - PIM Regional):** O IBGE calcula a série com ajuste sazonal (M/M-1) "
             f"exclusivamente para a **Indústria Geral** nas pesquisas regionais ({nome_local}). "
@@ -633,8 +636,8 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
 
     if df_ranking.empty:
         st.info(
-            "Nenhum ramo desagregado disponível para esta métrica no mês selecionado. "
-            "Selecione 'Todos os setores' ou altere a métrica para 'Variação acumulada no ano (%)' ou 'Variação M/M-12 (%)'."
+            f"Nenhum ramo de atividade com valor divulgado para {nome_local} no mês de {mes_escolhido_str}. "
+            "Selecione um mês com dados disponíveis ou ajuste o escopo da comparação."
         )
     else:
         df_ranking = df_ranking.copy()
