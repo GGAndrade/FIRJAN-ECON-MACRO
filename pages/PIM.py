@@ -382,6 +382,15 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                     delta=f"{val:+.2f}%" if val is not None else None,
                 )
 
+    if nome_local != "Brasil":
+        st.info(
+            f"**Nota Metodológica (IBGE - PIM Regional):** O IBGE calcula e divulga a série com ajuste sazonal (M/M-1) "
+            f"exclusivamente para a **Indústria Geral** nas pesquisas regionais ({nome_local}). "
+            f"Por esse motivo metodológico oficial, a variação mensal com ajuste sazonal para a **Indústria Extrativa** "
+            f"e a **Indústria de Transformação** consta como **N/D** (Não Disponível). Para a análise desses setores específicos, "
+            f"utilize as métricas sem ajuste sazonal: **Variação interanual (M/M-12)**, **Acumulado no Ano** e **Acumulado em 12 Meses**."
+        )
+
     st.write("---")
 
     # ----------------------------------------------------
@@ -879,6 +888,15 @@ with tab_comp:
         )
         mes_comp = mapa_datas_comp[mes_comp_str] if mapa_datas_comp else None
 
+    if "ajuste sazonal" in medida_comp_label.lower() and not setor_comp_escolhido.startswith("1 Ind"):
+        st.info(
+            f"**Nota Metodológica (IBGE - PIM Regional):** O IBGE calcula a série com ajuste sazonal (M/M-1) "
+            f"exclusivamente para a **Indústria Geral** no âmbito regional. Para setores específicos "
+            f"(como **{setor_comp_escolhido}**), a série com ajuste sazonal é disponibilizada exclusivamente para o "
+            f"**Brasil consolidado**. Para comparar as UFs neste setor, selecione uma métrica sem ajuste "
+            f"sazonal, como a **Variação acumulada no ano (%)** ou a **Variação M/M-12 (%)**."
+        )
+
     # Multiselect de UFs para a série temporal
     padrao_ufs_comp = [u for u in ["Brasil", "Rio de Janeiro", "São Paulo", "Minas Gerais"] if u in locais_disponiveis]
     ufs_selecionadas_comp = st.multiselect(
@@ -943,12 +961,26 @@ with tab_comp:
             ]
 
             st.markdown("#### Evolução Temporal Comparativa")
+
+            v_min_comp = df_serie_comp["VALOR"].min() if not df_serie_comp.empty else 0
+            v_max_comp = df_serie_comp["VALOR"].max() if not df_serie_comp.empty else 100
+            eixo_y_min_comp = set_y_min(v_min_comp) if pd.notna(v_min_comp) else 0
+            eixo_y_max_comp = set_y_max(v_max_comp) if pd.notna(v_max_comp) else 100
+
+            margem_y_comp = (eixo_y_max_comp - eixo_y_min_comp) * 0.08
+            eixo_y_min_comp -= margem_y_comp
+            eixo_y_max_comp += margem_y_comp
+
             graf_comp_linhas = (
                 alt.Chart(df_serie_comp)
                 .mark_line(strokeWidth=2.6)
                 .encode(
                     x=alt.X("Data:T", axis=alt.Axis(format="%m/%Y", labelAngle=-45, title="Mês/Ano")),
-                    y=alt.Y("VALOR:Q", title=medida_comp_label),
+                    y=alt.Y(
+                        "VALOR:Q",
+                        scale=alt.Scale(domain=[eixo_y_min_comp, eixo_y_max_comp]),
+                        title=medida_comp_label,
+                    ),
                     color=alt.Color(
                         "LOCAL:N",
                         scale=alt.Scale(
@@ -963,22 +995,146 @@ with tab_comp:
                         alt.Tooltip("VALOR:Q", title="Valor", format=".2f"),
                     ],
                 )
-                .properties(height=420)
             )
 
-            if ("(%)" in medida_comp_label or "(p.p.)" in medida_comp_label):
-                regra_zero = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(color="#94a3b8", strokeDash=[3, 3]).encode(y="y:Q")
-                graf_comp_linhas = graf_comp_linhas + regra_zero
+            max_uf_list = []
+            min_uf_list = []
+            resumo_extremos_uf = []
+            is_pct_comp = ("(%)" in medida_comp_label) or ("(p.p.)" in medida_comp_label)
+            fmt_val_comp = (lambda v: f"{v:+.2f}%") if is_pct_comp else (lambda v: f"{v:.2f}")
+
+            for u in ufs_selecionadas_comp:
+                sub_uf_per = df_serie_comp[df_serie_comp["LOCAL"] == u].dropna(subset=["VALOR"])
+                sub_uf_hist = df_comp_filtrado[df_comp_filtrado["LOCAL"] == u].dropna(subset=["VALOR"])
+
+                if not sub_uf_per.empty:
+                    idx_max_uf = sub_uf_per["VALOR"].idxmax()
+                    idx_min_uf = sub_uf_per["VALOR"].idxmin()
+
+                    r_max = sub_uf_per.loc[idx_max_uf].to_dict()
+                    r_max["Rotulo"] = f"Máx: {fmt_val_comp(r_max['VALOR'])} ({r_max['Data pt']})"
+                    max_uf_list.append(r_max)
+
+                    r_min = sub_uf_per.loc[idx_min_uf].to_dict()
+                    r_min["Rotulo"] = f"Mín: {fmt_val_comp(r_min['VALOR'])} ({r_min['Data pt']})"
+                    min_uf_list.append(r_min)
+
+                    if not sub_uf_hist.empty:
+                        idx_max_hist = sub_uf_hist["VALOR"].idxmax()
+                        idx_min_hist = sub_uf_hist["VALOR"].idxmin()
+                        r_max_hist = sub_uf_hist.loc[idx_max_hist]
+                        r_min_hist = sub_uf_hist.loc[idx_min_hist]
+                        r_ult = sub_uf_per.sort_values("Data").iloc[-1]
+
+                        resumo_extremos_uf.append(
+                            {
+                                "UF / Local": u,
+                                "Mínimo no Período": f"{fmt_val_comp(r_min['VALOR'])} ({r_min['Data pt']})",
+                                "Máximo no Período": f"{fmt_val_comp(r_max['VALOR'])} ({r_max['Data pt']})",
+                                "Mínimo Histórico Completo": f"{fmt_val_comp(r_min_hist['VALOR'])} ({r_min_hist['Data pt']})",
+                                "Máximo Histórico Completo": f"{fmt_val_comp(r_max_hist['VALOR'])} ({r_max_hist['Data pt']})",
+                                "Último Registrado": f"{fmt_val_comp(r_ult['VALOR'])} ({r_ult['Data pt']})",
+                            }
+                        )
+
+            df_max_uf = pd.DataFrame(max_uf_list)
+            df_min_uf = pd.DataFrame(min_uf_list)
+            camadas_uf = [graf_comp_linhas]
+
+            if not df_max_uf.empty:
+                pontos_max_uf = (
+                    alt.Chart(df_max_uf)
+                    .mark_point(size=90, filled=True, shape="circle")
+                    .encode(
+                        x="Data:T",
+                        y="VALOR:Q",
+                        color=alt.Color(
+                            "LOCAL:N",
+                            scale=alt.Scale(domain=ufs_selecionadas_comp, range=cores_selecionadas),
+                            legend=None,
+                        ),
+                        tooltip=[
+                            alt.Tooltip("LOCAL:N", title="Local"),
+                            alt.Tooltip("Data:T", title="Data do Máximo", format="%m/%Y"),
+                            alt.Tooltip("VALOR:Q", title="Valor Máximo", format="+.2f" if is_pct_comp else ".2f"),
+                        ],
+                    )
+                )
+                rotulos_max_uf = (
+                    alt.Chart(df_max_uf)
+                    .mark_text(fontSize=11, fontWeight="bold", dy=-12, align="center")
+                    .encode(
+                        x="Data:T",
+                        y="VALOR:Q",
+                        text="Rotulo:N",
+                        color=alt.Color(
+                            "LOCAL:N",
+                            scale=alt.Scale(domain=ufs_selecionadas_comp, range=cores_selecionadas),
+                            legend=None,
+                        ),
+                    )
+                )
+                camadas_uf.extend([pontos_max_uf, rotulos_max_uf])
+
+            if not df_min_uf.empty:
+                pontos_min_uf = (
+                    alt.Chart(df_min_uf)
+                    .mark_point(size=90, filled=True, shape="circle")
+                    .encode(
+                        x="Data:T",
+                        y="VALOR:Q",
+                        color=alt.Color(
+                            "LOCAL:N",
+                            scale=alt.Scale(domain=ufs_selecionadas_comp, range=cores_selecionadas),
+                            legend=None,
+                        ),
+                        tooltip=[
+                            alt.Tooltip("LOCAL:N", title="Local"),
+                            alt.Tooltip("Data:T", title="Data do Mínimo", format="%m/%Y"),
+                            alt.Tooltip("VALOR:Q", title="Valor Mínimo", format="+.2f" if is_pct_comp else ".2f"),
+                        ],
+                    )
+                )
+                rotulos_min_uf = (
+                    alt.Chart(df_min_uf)
+                    .mark_text(fontSize=11, fontWeight="bold", dy=14, align="center")
+                    .encode(
+                        x="Data:T",
+                        y="VALOR:Q",
+                        text="Rotulo:N",
+                        color=alt.Color(
+                            "LOCAL:N",
+                            scale=alt.Scale(domain=ufs_selecionadas_comp, range=cores_selecionadas),
+                            legend=None,
+                        ),
+                    )
+                )
+                camadas_uf.extend([pontos_min_uf, rotulos_min_uf])
+
+            if is_pct_comp and (v_min_comp < 0 < v_max_comp):
+                regra_zero = (
+                    alt.Chart(pd.DataFrame({"y": [0]}))
+                    .mark_rule(color="#94a3b8", strokeDash=[3, 3])
+                    .encode(y="y:Q")
+                )
+                camadas_uf.append(regra_zero)
+
+            graf_comp_linhas_final = alt.layer(*camadas_uf).properties(height=450)
 
             if pt_format and pt_time_format:
-                graf_comp_linhas["usermeta"] = {
+                graf_comp_linhas_final["usermeta"] = {
                     "embedOptions": {
                         "formatLocale": pt_format,
                         "timeFormatLocale": pt_time_format,
                     }
                 }
 
-            st.altair_chart(graf_comp_linhas, theme=None, use_container_width=True)
+            st.altair_chart(graf_comp_linhas_final, theme=None, use_container_width=True)
+
+            if resumo_extremos_uf:
+                st.markdown("##### Máximos e Mínimos da Série Histórica por UF")
+                df_tab_extremos_uf = pd.DataFrame(resumo_extremos_uf)
+                st.dataframe(df_tab_extremos_uf, use_container_width=True, hide_index=True)
 
     # Ranking Nacional de todas as UFs para o mês selecionado
     if mes_comp:
