@@ -593,10 +593,13 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
     st.write("#### Comparação setorial no período selecionado")
 
     df_var_valido = df_var.dropna(subset=["VALOR"])
-    datas_unicas = sorted(df_var_valido["Data"].unique().tolist(), reverse=True)
-    if not datas_unicas:
-        datas_unicas = sorted(df_var["Data"].dropna().unique().tolist(), reverse=True)
-    mapa_datas = {d.strftime("%m/%Y"): d for d in pd.to_datetime(datas_unicas)}
+    contagem_ramos_data = df_var_valido.groupby("Data")["SUBGRUPOS"].nunique()
+    datas_com_multiplos = contagem_ramos_data[contagem_ramos_data > 1].index.sort_values(ascending=False).tolist()
+    datas_todas_validas = sorted(df_var_valido["Data"].unique().tolist(), reverse=True)
+    datas_ordenadas = datas_com_multiplos if datas_com_multiplos else datas_todas_validas
+    if not datas_ordenadas:
+        datas_ordenadas = sorted(df_var["Data"].dropna().unique().tolist(), reverse=True)
+    mapa_datas = {d.strftime("%m/%Y"): d for d in pd.to_datetime(datas_ordenadas)}
 
     col_r1, col_r2 = st.columns([1, 1])
     with col_r1:
@@ -604,7 +607,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
             "Mês de Referência para Comparação",
             options=list(mapa_datas.keys()),
             index=0,
-            key=f"{prefixo}_mes_ranking",
+            key=f"{prefixo}_mes_ranking_{medida_label}",
         )
         mes_escolhido = mapa_datas[mes_escolhido_str]
 
@@ -621,7 +624,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
 
     if "Apenas ramos desagregados" in filtro_ramos:
         df_ranking = df_ranking[
-            ~df_ranking["SUBGRUPOS"].str.contains("^(1|2|3) Ind", regex=True, na=False)
+            ~df_ranking["SUBGRUPOS"].str.contains(r"^(?:1|2|3)\s*Ind", regex=True, na=False)
         ]
 
     df_ranking = df_ranking.dropna(subset=["VALOR"]).sort_values("VALOR", ascending=False)
@@ -872,7 +875,7 @@ with tab_comp:
             "Mês de Referência para o Ranking",
             options=opcoes_datas_comp,
             index=idx_mes_padrao,
-            key="comp_mes_ref",
+            key=f"comp_mes_ref_{medida_comp_label}_{setor_comp_escolhido}",
         )
         mes_comp = mapa_datas_comp[mes_comp_str] if mapa_datas_comp else None
 
@@ -888,7 +891,11 @@ with tab_comp:
     if not ufs_selecionadas_comp:
         st.warning("Selecione pelo menos uma UF para visualizar a série temporal comparativa.")
     else:
-        df_serie_comp = df_comp_filtrado[df_comp_filtrado["LOCAL"].isin(ufs_selecionadas_comp)].copy()
+        df_serie_comp = (
+            df_comp_filtrado[df_comp_filtrado["LOCAL"].isin(ufs_selecionadas_comp)]
+            .dropna(subset=["VALOR"])
+            .copy()
+        )
         anos_comp = sorted(df_serie_comp["Ano"].dropna().unique().astype(int).tolist())
 
         if anos_comp:
@@ -904,6 +911,37 @@ with tab_comp:
                 (df_serie_comp["Ano"] >= ano_ini_comp) & (df_serie_comp["Ano"] <= ano_fim_comp)
             ]
 
+            # Paleta corporativa Firjan para as UFs com diferenciação clara
+            cores_uf_map = {
+                "Brasil": "#002d62",         # Azul Marinho Institucional Firjan
+                "Rio de Janeiro": "#0072ce",  # Azul Firjan
+                "São Paulo": "#e11d48",      # Carmesim
+                "Minas Gerais": "#0d9488",   # Verde Petróleo / Teal
+                "Paraná": "#7c3aed",         # Roxo
+                "Rio Grande do Sul": "#d97706", # Âmbar
+                "Santa Catarina": "#2563eb", # Azul Royal
+                "Bahia": "#059669",          # Verde Esmeralda
+                "Espírito Santo": "#4f46e5", # Índigo
+                "Goiás": "#16a34a",          # Verde
+                "Ceará": "#ea580c",          # Laranja
+                "Pernambuco": "#db2777",     # Magenta
+                "Amazonas": "#0891b2",       # Ciano
+                "Pará": "#ca8a04",           # Dourado
+                "Mato Grosso": "#9333ea",    # Violeta
+                "Mato Grosso do Sul": "#0284c7", # Azul Claro
+                "Maranhão": "#b45309",       # Marrom
+                "Rio Grande do Norte": "#64748b", # Cinza Ardósia
+            }
+            palette_fallback = [
+                "#002d62", "#0072ce", "#e11d48", "#0d9488", "#7c3aed",
+                "#d97706", "#2563eb", "#059669", "#4f46e5", "#16a34a",
+                "#ea580c", "#db2777", "#0891b2", "#ca8a04", "#9333ea"
+            ]
+            cores_selecionadas = [
+                cores_uf_map.get(u, palette_fallback[i % len(palette_fallback)])
+                for i, u in enumerate(ufs_selecionadas_comp)
+            ]
+
             st.markdown("#### Evolução Temporal Comparativa")
             graf_comp_linhas = (
                 alt.Chart(df_serie_comp)
@@ -914,8 +952,8 @@ with tab_comp:
                     color=alt.Color(
                         "LOCAL:N",
                         scale=alt.Scale(
-                            domain=["Brasil", "Rio de Janeiro"],
-                            range=["#002d62", "#0072ce"],
+                            domain=ufs_selecionadas_comp,
+                            range=cores_selecionadas,
                         ),
                         legend=alt.Legend(title="UF / Local", orient="bottom"),
                     ),
