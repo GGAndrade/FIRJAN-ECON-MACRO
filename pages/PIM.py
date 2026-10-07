@@ -503,9 +503,26 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
 
                 max_list = []
                 min_list = []
+                ult_list = []
                 resumo_extremos = []
-                is_pct = ("(%)" in medida_label) or ("(p.p.)" in medida_label)
-                fmt_val = (lambda v: f"{v:+.2f}%") if is_pct else (lambda v: f"{v:.2f}")
+                is_infl = "(p.p.)" in medida_label
+                is_pct = ("(%)" in medida_label or "Varia" in medida_label) and not is_infl
+
+                def fmt_val(v):
+                    if pd.isna(v):
+                        return "N/D"
+                    if is_infl:
+                        return f"{v:+.2f} p.p."
+                    if is_pct:
+                        return f"{v:+.2f}%"
+                    return f"{v:.2f}"
+
+                def fmt_dif(d):
+                    if pd.isna(d):
+                        return "N/D"
+                    unidade = "p.p." if (is_pct or is_infl) else "pts"
+                    val = 0.0 if abs(d) < 1e-7 else d
+                    return f"{val:+.2f} {unidade}"
 
                 for s in setores_selecionados:
                     sub_per = df_graf_linha[df_graf_linha["SUBGRUPOS"] == s].dropna(subset=["VALOR"])
@@ -514,35 +531,79 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                     if not sub_per.empty:
                         idx_max_per = sub_per["VALOR"].idxmax()
                         idx_min_per = sub_per["VALOR"].idxmin()
-
                         r_max = sub_per.loc[idx_max_per].to_dict()
-                        r_max["Rotulo"] = f"Máx: {fmt_val(r_max['VALOR'])} ({r_max['Data pt']})"
-                        max_list.append(r_max)
-
                         r_min = sub_per.loc[idx_min_per].to_dict()
-                        r_min["Rotulo"] = f"Mín: {fmt_val(r_min['VALOR'])} ({r_min['Data pt']})"
-                        min_list.append(r_min)
+
+                        sub_per_sorted = sub_per.sort_values("Data")
+                        r_ult = sub_per_sorted.iloc[-1].to_dict()
+                        idx_ult = sub_per_sorted.index[-1]
+
+                        v_ult = r_ult["VALOR"]
+                        v_max_per = r_max["VALOR"]
+                        v_min_per = r_min["VALOR"]
+
+                        dif_max_per = v_ult - v_max_per
+                        dif_min_per = v_ult - v_min_per
 
                         if not sub_hist.empty:
                             idx_max_hist = sub_hist["VALOR"].idxmax()
                             idx_min_hist = sub_hist["VALOR"].idxmin()
                             r_max_hist = sub_hist.loc[idx_max_hist]
                             r_min_hist = sub_hist.loc[idx_min_hist]
-                            r_ult = sub_per.sort_values("Data").iloc[-1]
+                            v_max_hist = r_max_hist["VALOR"]
+                            v_min_hist = r_min_hist["VALOR"]
+                            dif_max_hist = v_ult - v_max_hist
+                            dif_min_hist = v_ult - v_min_hist
+                        else:
+                            r_max_hist = r_max
+                            r_min_hist = r_min
+                            v_max_hist = v_max_per
+                            v_min_hist = v_min_per
+                            dif_max_hist = dif_max_per
+                            dif_min_hist = dif_min_per
 
-                            resumo_extremos.append(
-                                {
-                                    "Setor": s,
-                                    "Mínimo no Período": f"{fmt_val(r_min['VALOR'])} ({r_min['Data pt']})",
-                                    "Máximo no Período": f"{fmt_val(r_max['VALOR'])} ({r_max['Data pt']})",
-                                    "Mínimo Histórico Completo": f"{fmt_val(r_min_hist['VALOR'])} ({r_min_hist['Data pt']})",
-                                    "Máximo Histórico Completo": f"{fmt_val(r_max_hist['VALOR'])} ({r_max_hist['Data pt']})",
-                                    "Último Registrado": f"{fmt_val(r_ult['VALOR'])} ({r_ult['Data pt']})",
-                                }
-                            )
+                        r_max["Rotulo"] = f"Máx: {fmt_val(v_max_per)} ({r_max['Data pt']})"
+                        r_min["Rotulo"] = f"Mín: {fmt_val(v_min_per)} ({r_min['Data pt']})"
+
+                        r_ult_dict = dict(r_ult)
+                        r_ult_dict["Dif_Max_Per"] = fmt_dif(dif_max_per)
+                        r_ult_dict["Dif_Min_Per"] = fmt_dif(dif_min_per)
+                        r_ult_dict["Dif_Max_Hist"] = fmt_dif(dif_max_hist)
+                        r_ult_dict["Dif_Min_Hist"] = fmt_dif(dif_min_hist)
+                        r_ult_dict["Val_Formatado"] = fmt_val(v_ult)
+
+                        if idx_ult == idx_max_per:
+                            r_max["Rotulo"] = f"Máx (Últ): {fmt_val(v_max_per)} ({r_max['Data pt']}) [ΔMín: {fmt_dif(dif_min_per)}]"
+                        elif idx_ult == idx_min_per:
+                            r_min["Rotulo"] = f"Mín (Últ): {fmt_val(v_min_per)} ({r_min['Data pt']}) [ΔMáx: {fmt_dif(dif_max_per)}]"
+                        else:
+                            if len(setores_selecionados) <= 2:
+                                r_ult_dict["Rotulo"] = f"Últ: {fmt_val(v_ult)} ({r_ult['Data pt']}) [ΔMáx: {fmt_dif(dif_max_per)} | ΔMín: {fmt_dif(dif_min_per)}]"
+                            else:
+                                r_ult_dict["Rotulo"] = f"Últ: {fmt_val(v_ult)} [ΔMáx: {fmt_dif(dif_max_per)}]"
+                            ult_list.append(r_ult_dict)
+
+                        max_list.append(r_max)
+                        min_list.append(r_min)
+
+                        resumo_extremos.append(
+                            {
+                                "Setor": s,
+                                "Último Registrado": f"{fmt_val(v_ult)} ({r_ult['Data pt']})",
+                                "Dif. vs Máx (Período)": fmt_dif(dif_max_per),
+                                "Dif. vs Mín (Período)": fmt_dif(dif_min_per),
+                                "Máximo no Período": f"{fmt_val(v_max_per)} ({r_max['Data pt']})",
+                                "Mínimo no Período": f"{fmt_val(v_min_per)} ({r_min['Data pt']})",
+                                "Dif. vs Máx Histórico": fmt_dif(dif_max_hist),
+                                "Dif. vs Mín Histórico": fmt_dif(dif_min_hist),
+                                "Máximo Histórico Completo": f"{fmt_val(v_max_hist)} ({r_max_hist['Data pt']})",
+                                "Mínimo Histórico Completo": f"{fmt_val(v_min_hist)} ({r_min_hist['Data pt']})",
+                            }
+                        )
 
                 df_max = pd.DataFrame(max_list)
                 df_min = pd.DataFrame(min_list)
+                df_ult = pd.DataFrame(ult_list)
                 camadas = [grafico_linha]
 
                 if not df_max.empty:
@@ -556,7 +617,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             tooltip=[
                                 alt.Tooltip("SUBGRUPOS:N", title="Setor"),
                                 alt.Tooltip("Data:T", title="Data do Máximo", format="%m/%Y"),
-                                alt.Tooltip("VALOR:Q", title="Valor Máximo", format="+.2f" if is_pct else ".2f"),
+                                alt.Tooltip("VALOR:Q", title="Valor Máximo", format="+.2f" if (is_pct or is_infl) else ".2f"),
                             ],
                         )
                     )
@@ -583,7 +644,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             tooltip=[
                                 alt.Tooltip("SUBGRUPOS:N", title="Setor"),
                                 alt.Tooltip("Data:T", title="Data do Mínimo", format="%m/%Y"),
-                                alt.Tooltip("VALOR:Q", title="Valor Mínimo", format="+.2f" if is_pct else ".2f"),
+                                alt.Tooltip("VALOR:Q", title="Valor Mínimo", format="+.2f" if (is_pct or is_infl) else ".2f"),
                             ],
                         )
                     )
@@ -599,7 +660,38 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                     )
                     camadas.extend([pontos_min, rotulos_min])
 
-                if ("(%)" in medida_label or "(p.p.)" in medida_label) and (v_min < 0 < v_max):
+                if not df_ult.empty:
+                    pontos_ult = (
+                        alt.Chart(df_ult)
+                        .mark_point(size=110, filled=True, shape="diamond")
+                        .encode(
+                            x="Data:T",
+                            y="VALOR:Q",
+                            color=alt.Color("SUBGRUPOS:N", legend=None),
+                            tooltip=[
+                                alt.Tooltip("SUBGRUPOS:N", title="Setor"),
+                                alt.Tooltip("Data:T", title="Última Data", format="%m/%Y"),
+                                alt.Tooltip("Val_Formatado:N", title="Último Valor"),
+                                alt.Tooltip("Dif_Max_Per:N", title="Dif. vs Máx (Período)"),
+                                alt.Tooltip("Dif_Min_Per:N", title="Dif. vs Mín (Período)"),
+                                alt.Tooltip("Dif_Max_Hist:N", title="Dif. vs Máx Histórico"),
+                                alt.Tooltip("Dif_Min_Hist:N", title="Dif. vs Mín Histórico"),
+                            ],
+                        )
+                    )
+                    rotulos_ult = (
+                        alt.Chart(df_ult)
+                        .mark_text(fontSize=11, fontWeight="bold", dy=-14, align="center")
+                        .encode(
+                            x="Data:T",
+                            y="VALOR:Q",
+                            text="Rotulo:N",
+                            color=alt.Color("SUBGRUPOS:N", legend=None),
+                        )
+                    )
+                    camadas.extend([pontos_ult, rotulos_ult])
+
+                if (is_pct or is_infl) and (v_min < 0 < v_max):
                     linha_zero = (
                         alt.Chart(pd.DataFrame({"y": [0]}))
                         .mark_rule(color="#94a3b8", strokeDash=[3, 3])
@@ -619,7 +711,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                 st.altair_chart(grafico_linha_final, theme=None, use_container_width=True)
 
                 if resumo_extremos:
-                    st.markdown("##### Máximos e Mínimos da Série Histórica por Setor")
+                    st.markdown("##### Extremos da Série e Diferenciais do Último Registro por Setor")
                     df_tab_extremos = pd.DataFrame(resumo_extremos)
                     st.dataframe(df_tab_extremos, use_container_width=True, hide_index=True)
 
@@ -1034,9 +1126,26 @@ with tab_comp:
 
             max_uf_list = []
             min_uf_list = []
+            ult_uf_list = []
             resumo_extremos_uf = []
-            is_pct_comp = ("(%)" in medida_comp_label) or ("(p.p.)" in medida_comp_label)
-            fmt_val_comp = (lambda v: f"{v:+.2f}%") if is_pct_comp else (lambda v: f"{v:.2f}")
+            is_infl_comp = "(p.p.)" in medida_comp_label
+            is_pct_comp = ("(%)" in medida_comp_label or "Varia" in medida_comp_label) and not is_infl_comp
+
+            def fmt_val_comp(v):
+                if pd.isna(v):
+                    return "N/D"
+                if is_infl_comp:
+                    return f"{v:+.2f} p.p."
+                if is_pct_comp:
+                    return f"{v:+.2f}%"
+                return f"{v:.2f}"
+
+            def fmt_dif_comp(d):
+                if pd.isna(d):
+                    return "N/D"
+                unidade = "p.p." if (is_pct_comp or is_infl_comp) else "pts"
+                val = 0.0 if abs(d) < 1e-7 else d
+                return f"{val:+.2f} {unidade}"
 
             for u in ufs_selecionadas_comp:
                 sub_uf_per = df_serie_comp[df_serie_comp["LOCAL"] == u].dropna(subset=["VALOR"])
@@ -1045,35 +1154,79 @@ with tab_comp:
                 if not sub_uf_per.empty:
                     idx_max_uf = sub_uf_per["VALOR"].idxmax()
                     idx_min_uf = sub_uf_per["VALOR"].idxmin()
-
                     r_max = sub_uf_per.loc[idx_max_uf].to_dict()
-                    r_max["Rotulo"] = f"Máx: {fmt_val_comp(r_max['VALOR'])} ({r_max['Data pt']})"
-                    max_uf_list.append(r_max)
-
                     r_min = sub_uf_per.loc[idx_min_uf].to_dict()
-                    r_min["Rotulo"] = f"Mín: {fmt_val_comp(r_min['VALOR'])} ({r_min['Data pt']})"
-                    min_uf_list.append(r_min)
+
+                    sub_uf_sorted = sub_uf_per.sort_values("Data")
+                    r_ult = sub_uf_sorted.iloc[-1].to_dict()
+                    idx_ult = sub_uf_sorted.index[-1]
+
+                    v_ult = r_ult["VALOR"]
+                    v_max_per = r_max["VALOR"]
+                    v_min_per = r_min["VALOR"]
+
+                    dif_max_per = v_ult - v_max_per
+                    dif_min_per = v_ult - v_min_per
 
                     if not sub_uf_hist.empty:
                         idx_max_hist = sub_uf_hist["VALOR"].idxmax()
                         idx_min_hist = sub_uf_hist["VALOR"].idxmin()
                         r_max_hist = sub_uf_hist.loc[idx_max_hist]
                         r_min_hist = sub_uf_hist.loc[idx_min_hist]
-                        r_ult = sub_uf_per.sort_values("Data").iloc[-1]
+                        v_max_hist = r_max_hist["VALOR"]
+                        v_min_hist = r_min_hist["VALOR"]
+                        dif_max_hist = v_ult - v_max_hist
+                        dif_min_hist = v_ult - v_min_hist
+                    else:
+                        r_max_hist = r_max
+                        r_min_hist = r_min
+                        v_max_hist = v_max_per
+                        v_min_hist = v_min_per
+                        dif_max_hist = dif_max_per
+                        dif_min_hist = dif_min_per
 
-                        resumo_extremos_uf.append(
-                            {
-                                "UF / Local": u,
-                                "Mínimo no Período": f"{fmt_val_comp(r_min['VALOR'])} ({r_min['Data pt']})",
-                                "Máximo no Período": f"{fmt_val_comp(r_max['VALOR'])} ({r_max['Data pt']})",
-                                "Mínimo Histórico Completo": f"{fmt_val_comp(r_min_hist['VALOR'])} ({r_min_hist['Data pt']})",
-                                "Máximo Histórico Completo": f"{fmt_val_comp(r_max_hist['VALOR'])} ({r_max_hist['Data pt']})",
-                                "Último Registrado": f"{fmt_val_comp(r_ult['VALOR'])} ({r_ult['Data pt']})",
-                            }
-                        )
+                    r_max["Rotulo"] = f"Máx: {fmt_val_comp(v_max_per)} ({r_max['Data pt']})"
+                    r_min["Rotulo"] = f"Mín: {fmt_val_comp(v_min_per)} ({r_min['Data pt']})"
+
+                    r_ult_dict = dict(r_ult)
+                    r_ult_dict["Dif_Max_Per"] = fmt_dif_comp(dif_max_per)
+                    r_ult_dict["Dif_Min_Per"] = fmt_dif_comp(dif_min_per)
+                    r_ult_dict["Dif_Max_Hist"] = fmt_dif_comp(dif_max_hist)
+                    r_ult_dict["Dif_Min_Hist"] = fmt_dif_comp(dif_min_hist)
+                    r_ult_dict["Val_Formatado"] = fmt_val_comp(v_ult)
+
+                    if idx_ult == idx_max_uf:
+                        r_max["Rotulo"] = f"Máx (Últ): {fmt_val_comp(v_max_per)} ({r_max['Data pt']}) [ΔMín: {fmt_dif_comp(dif_min_per)}]"
+                    elif idx_ult == idx_min_uf:
+                        r_min["Rotulo"] = f"Mín (Últ): {fmt_val_comp(v_min_per)} ({r_min['Data pt']}) [ΔMáx: {fmt_dif_comp(dif_max_per)}]"
+                    else:
+                        if len(ufs_selecionadas_comp) <= 2:
+                            r_ult_dict["Rotulo"] = f"Últ: {fmt_val_comp(v_ult)} ({r_ult['Data pt']}) [ΔMáx: {fmt_dif_comp(dif_max_per)} | ΔMín: {fmt_dif_comp(dif_min_per)}]"
+                        else:
+                            r_ult_dict["Rotulo"] = f"Últ: {fmt_val_comp(v_ult)} [ΔMáx: {fmt_dif_comp(dif_max_per)}]"
+                        ult_uf_list.append(r_ult_dict)
+
+                    max_uf_list.append(r_max)
+                    min_uf_list.append(r_min)
+
+                    resumo_extremos_uf.append(
+                        {
+                            "UF / Local": u,
+                            "Último Registrado": f"{fmt_val_comp(v_ult)} ({r_ult['Data pt']})",
+                            "Dif. vs Máx (Período)": fmt_dif_comp(dif_max_per),
+                            "Dif. vs Mín (Período)": fmt_dif_comp(dif_min_per),
+                            "Máximo no Período": f"{fmt_val_comp(v_max_per)} ({r_max['Data pt']})",
+                            "Mínimo no Período": f"{fmt_val_comp(v_min_per)} ({r_min['Data pt']})",
+                            "Dif. vs Máx Histórico": fmt_dif_comp(dif_max_hist),
+                            "Dif. vs Mín Histórico": fmt_dif_comp(dif_min_hist),
+                            "Máximo Histórico Completo": f"{fmt_val_comp(v_max_hist)} ({r_max_hist['Data pt']})",
+                            "Mínimo Histórico Completo": f"{fmt_val_comp(v_min_hist)} ({r_min_hist['Data pt']})",
+                        }
+                    )
 
             df_max_uf = pd.DataFrame(max_uf_list)
             df_min_uf = pd.DataFrame(min_uf_list)
+            df_ult_uf = pd.DataFrame(ult_uf_list)
             camadas_uf = [graf_comp_linhas]
 
             if not df_max_uf.empty:
@@ -1091,7 +1244,7 @@ with tab_comp:
                         tooltip=[
                             alt.Tooltip("LOCAL:N", title="Local"),
                             alt.Tooltip("Data:T", title="Data do Máximo", format="%m/%Y"),
-                            alt.Tooltip("VALOR:Q", title="Valor Máximo", format="+.2f" if is_pct_comp else ".2f"),
+                            alt.Tooltip("VALOR:Q", title="Valor Máximo", format="+.2f" if (is_pct_comp or is_infl_comp) else ".2f"),
                         ],
                     )
                 )
@@ -1126,7 +1279,7 @@ with tab_comp:
                         tooltip=[
                             alt.Tooltip("LOCAL:N", title="Local"),
                             alt.Tooltip("Data:T", title="Data do Mínimo", format="%m/%Y"),
-                            alt.Tooltip("VALOR:Q", title="Valor Mínimo", format="+.2f" if is_pct_comp else ".2f"),
+                            alt.Tooltip("VALOR:Q", title="Valor Mínimo", format="+.2f" if (is_pct_comp or is_infl_comp) else ".2f"),
                         ],
                     )
                 )
@@ -1146,7 +1299,46 @@ with tab_comp:
                 )
                 camadas_uf.extend([pontos_min_uf, rotulos_min_uf])
 
-            if is_pct_comp and (v_min_comp < 0 < v_max_comp):
+            if not df_ult_uf.empty:
+                pontos_ult_uf = (
+                    alt.Chart(df_ult_uf)
+                    .mark_point(size=110, filled=True, shape="diamond")
+                    .encode(
+                        x="Data:T",
+                        y="VALOR:Q",
+                        color=alt.Color(
+                            "LOCAL:N",
+                            scale=alt.Scale(domain=ufs_selecionadas_comp, range=cores_selecionadas),
+                            legend=None,
+                        ),
+                        tooltip=[
+                            alt.Tooltip("LOCAL:N", title="UF / Local"),
+                            alt.Tooltip("Data:T", title="Última Data", format="%m/%Y"),
+                            alt.Tooltip("Val_Formatado:N", title="Último Valor"),
+                            alt.Tooltip("Dif_Max_Per:N", title="Dif. vs Máx (Período)"),
+                            alt.Tooltip("Dif_Min_Per:N", title="Dif. vs Mín (Período)"),
+                            alt.Tooltip("Dif_Max_Hist:N", title="Dif. vs Máx Histórico"),
+                            alt.Tooltip("Dif_Min_Hist:N", title="Dif. vs Mín Histórico"),
+                        ],
+                    )
+                )
+                rotulos_ult_uf = (
+                    alt.Chart(df_ult_uf)
+                    .mark_text(fontSize=11, fontWeight="bold", dy=-14, align="center")
+                    .encode(
+                        x="Data:T",
+                        y="VALOR:Q",
+                        text="Rotulo:N",
+                        color=alt.Color(
+                            "LOCAL:N",
+                            scale=alt.Scale(domain=ufs_selecionadas_comp, range=cores_selecionadas),
+                            legend=None,
+                        ),
+                    )
+                )
+                camadas_uf.extend([pontos_ult_uf, rotulos_ult_uf])
+
+            if (is_pct_comp or is_infl_comp) and (v_min_comp < 0 < v_max_comp):
                 regra_zero = (
                     alt.Chart(pd.DataFrame({"y": [0]}))
                     .mark_rule(color="#94a3b8", strokeDash=[3, 3])
@@ -1167,7 +1359,7 @@ with tab_comp:
             st.altair_chart(graf_comp_linhas_final, theme=None, use_container_width=True)
 
             if resumo_extremos_uf:
-                st.markdown("##### Máximos e Mínimos da Série Histórica por UF")
+                st.markdown("##### Extremos da Série e Diferenciais do Último Registro por UF")
                 df_tab_extremos_uf = pd.DataFrame(resumo_extremos_uf)
                 st.dataframe(df_tab_extremos_uf, use_container_width=True, hide_index=True)
 
