@@ -474,8 +474,12 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
     if not setores_selecionados:
         st.warning("Selecione pelo menos um setor industrial para exibir a série temporal.")
     else:
-        df_graf_linha = df_var[df_var["SUBGRUPOS"].isin(setores_selecionados)].copy()
-        anos_totais = sorted(df_graf_linha["Ano"].dropna().unique().astype(int).tolist())
+        df_graf_valido = (
+            df_var[df_var["SUBGRUPOS"].isin(setores_selecionados)]
+            .dropna(subset=["VALOR"])
+            .copy()
+        )
+        anos_totais = sorted(df_graf_valido["Ano"].dropna().unique().astype(int).tolist())
 
         if not anos_totais:
             st.info("Nenhum dado temporal disponível para os setores selecionados.")
@@ -489,8 +493,8 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                 key=f"{prefixo}_slider_anos",
             )
 
-            df_graf_linha = df_graf_linha[
-                (df_graf_linha["Ano"] >= ano_inicial) & (df_graf_linha["Ano"] <= ano_final)
+            df_graf_linha = df_graf_valido[
+                (df_graf_valido["Ano"] >= ano_inicial) & (df_graf_valido["Ano"] <= ano_final)
             ]
 
             if df_graf_linha.empty:
@@ -507,6 +511,14 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
 
                 data_min_graf = df_graf_linha["Data"].min()
                 data_max_graf = df_graf_linha["Data"].max()
+
+                setores_cobertura_recente = []
+                for s in setores_selecionados:
+                    sub_s = df_graf_linha[df_graf_linha["SUBGRUPOS"] == s]
+                    if not sub_s.empty:
+                        min_s = sub_s["Data"].min()
+                        if min_s > data_min_graf:
+                            setores_cobertura_recente.append((s, min_s.strftime("%m/%Y")))
 
                 palette_setores = [
                     "#002d62", "#0072ce", "#e11d48", "#0d9488", "#d97706",
@@ -808,7 +820,6 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             cor = item.get("cor", "#002d62")
                             ult = item["Último Registrado"]
                             dif_max = item["Dif. vs Máx (Período)"]
-                            dif_min = item["Dif. vs Mín (Período)"]
                             with col:
                                 st.markdown(
                                     f"""
@@ -817,13 +828,9 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                                         <div style="margin-top: 4px; font-size: 0.72rem; color: #64748b; font-weight: 600;">Último Registrado:</div>
                                         <div style="font-size: 1.20rem; font-weight: 800; color: #002d62; line-height: 1.2;">{ult}</div>
                                         <div style="margin-top: 6px; border-top: 1px dashed #cbd5e1; padding-top: 5px; font-size: 0.74rem; color: #475569;">
-                                            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                                            <div style="display: flex; justify-content: space-between;">
                                                 <span style="color: #64748b;">Dif. vs Máx:</span>
                                                 <strong style="color: #002d62;">{dif_max}</strong>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span style="color: #64748b;">Dif. vs Mín:</span>
-                                                <strong style="color: #002d62;">{dif_min}</strong>
                                             </div>
                                         </div>
                                     </div>
@@ -832,6 +839,17 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                                 )
 
                 st.altair_chart(grafico_linha_final, theme=None, use_container_width=True)
+
+                if setores_cobertura_recente:
+                    detalhes_setores = "; ".join([f"<strong>{s}</strong> (a partir de {dt})" for s, dt in setores_cobertura_recente])
+                    st.markdown(
+                        f'<div class="nota-metodologica">'
+                        f'<strong>Nota de Cobertura Histórica (IBGE - PIM Regional):</strong> '
+                        f'A série histórica exibida contempla todos os dados oficiais disponíveis desde {data_min_graf.strftime("%m/%Y")}. '
+                        f'Para {nome_local}, os seguintes setores foram incorporados à pesquisa pelo IBGE em revisões posteriores: {detalhes_setores}.'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
                 if resumo_extremos:
                     st.markdown("##### Extremos da Série e Diferenciais do Último Registro por Setor")
@@ -1499,7 +1517,6 @@ with tab_comp:
                         cor = item.get("cor", "#002d62")
                         ult = item["Último Registrado"]
                         dif_max = item["Dif. vs Máx (Período)"]
-                        dif_min = item["Dif. vs Mín (Período)"]
                         with col:
                             st.markdown(
                                 f"""
@@ -1508,13 +1525,9 @@ with tab_comp:
                                     <div style="margin-top: 4px; font-size: 0.72rem; color: #64748b; font-weight: 600;">Último Registrado:</div>
                                     <div style="font-size: 1.20rem; font-weight: 800; color: #002d62; line-height: 1.2;">{ult}</div>
                                     <div style="margin-top: 6px; border-top: 1px dashed #cbd5e1; padding-top: 5px; font-size: 0.74rem; color: #475569;">
-                                        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                                        <div style="display: flex; justify-content: space-between;">
                                             <span style="color: #64748b;">Dif. vs Máx:</span>
                                             <strong style="color: #002d62;">{dif_max}</strong>
-                                        </div>
-                                        <div style="display: flex; justify-content: space-between;">
-                                            <span style="color: #64748b;">Dif. vs Mín:</span>
-                                            <strong style="color: #002d62;">{dif_min}</strong>
                                         </div>
                                     </div>
                                 </div>

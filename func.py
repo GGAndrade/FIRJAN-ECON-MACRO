@@ -79,14 +79,19 @@ def config_page(page_title):
     )
 
     with st.sidebar:
-        if os.path.exists("firjan_logo.png"):
-            st.image("firjan_logo.png", use_container_width=True)
-        else:
-            st.image(
-                "https://www.firjan.com.br/custom/FIRJAN/Portal/images/geral/main_logo.png",
-                use_container_width=True,
-            )
-        st.write("")
+        b64_logo = get_base64_image("firjan_logo.png")
+        if not b64_logo and os.path.exists("assets/brd-logo-footer.png"):
+            b64_logo = get_base64_image("assets/brd-logo-footer.png")
+        logo_src = b64_logo if b64_logo else "https://www.firjan.com.br/custom/FIRJAN/Portal/images/geral/main_logo.png"
+
+        st.markdown(
+            f"""
+            <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: center;">
+                <img src="{logo_src}" style="max-width: 100%; height: auto; display: block;" alt="Firjan" />
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         pages_to_link = [
             ("INICIO.py", "Início"),
