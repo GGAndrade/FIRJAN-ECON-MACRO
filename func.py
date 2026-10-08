@@ -191,6 +191,34 @@ def custom_style():
     )
 
 
+def card_destaque_html(nome, cor, ultimo, dif_max, subtitulo=""):
+    """Gera o HTML do card de destaque em uma única linha.
+
+    Sem quebras de linha nem indentação: caso contrário o parser Markdown do
+    Streamlit interpreta linhas indentadas (4+ espaços) ou linhas em branco
+    como bloco de código e exibe o HTML como texto.
+    """
+    sub_html = (
+        f'<div style="font-size:0.68rem;color:#0072ce;font-weight:600;margin-top:1px;">{subtitulo}</div>'
+        if subtitulo
+        else ""
+    )
+    return (
+        f'<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-top:3.5px solid {cor};'
+        f'border-radius:8px;padding:10px 14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">'
+        f'<div style="font-size:0.82rem;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;'
+        f'text-overflow:ellipsis;" title="{nome}">{nome}</div>'
+        f'{sub_html}'
+        f'<div style="margin-top:4px;font-size:0.72rem;color:#64748b;font-weight:600;">Último Registrado:</div>'
+        f'<div style="font-size:1.20rem;font-weight:800;color:#002d62;line-height:1.2;">{ultimo}</div>'
+        f'<div style="margin-top:6px;border-top:1px dashed #cbd5e1;padding-top:5px;font-size:0.74rem;color:#475569;">'
+        f'<div style="display:flex;justify-content:space-between;">'
+        f'<span style="color:#64748b;">Dif. vs Máx:</span>'
+        f'<strong style="color:#002d62;">{dif_max}</strong>'
+        f'</div></div></div>'
+    )
+
+
 def header_firjan():
     st.markdown(
         """

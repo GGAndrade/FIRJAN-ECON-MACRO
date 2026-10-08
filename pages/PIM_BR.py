@@ -18,6 +18,7 @@ from func import (
     set_y_min,
     set_y_max,
     to_excel2,
+    card_destaque_html,
 )
 
 ###### CONFIGURAÇÕES INICIAIS
@@ -716,19 +717,7 @@ else:
                     dif_max = item["Dif. vs Máx (Período)"]
                     with col:
                         st.markdown(
-                            f"""
-                            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-top: 3.5px solid {cor}; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-                                <div style="font-size: 0.82rem; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{nome}">{nome}</div>
-                                <div style="margin-top: 4px; font-size: 0.72rem; color: #64748b; font-weight: 600;">Último Registrado:</div>
-                                <div style="font-size: 1.20rem; font-weight: 800; color: #002d62; line-height: 1.2;">{ult}</div>
-                                <div style="margin-top: 6px; border-top: 1px dashed #cbd5e1; padding-top: 5px; font-size: 0.74rem; color: #475569;">
-                                    <div style="display: flex; justify-content: space-between;">
-                                        <span style="color: #64748b;">Dif. vs Máx:</span>
-                                        <strong style="color: #002d62;">{dif_max}</strong>
-                                    </div>
-                                </div>
-                            </div>
-                            """,
+                            card_destaque_html(nome, cor, ult, dif_max),
                             unsafe_allow_html=True,
                         )
 
