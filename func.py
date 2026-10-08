@@ -86,8 +86,8 @@ def config_page(page_title):
 
         st.markdown(
             f"""
-            <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: center;">
-                <img src="{logo_src}" style="max-width: 100%; height: auto; display: block;" alt="Firjan" />
+            <div style="padding: 6px 4px 18px 4px; display: flex; align-items: center; justify-content: flex-start;">
+                <img src="{logo_src}" style="max-width: 95%; height: auto; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.10));" alt="Firjan" />
             </div>
             """,
             unsafe_allow_html=True,
