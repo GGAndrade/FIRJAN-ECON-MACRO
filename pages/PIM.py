@@ -284,6 +284,46 @@ for v in vars_banco:
     if v not in opcoes_medidas.values():
         opcoes_medidas[v] = v
 
+# Mapeamento para nomes amigáveis e concisos dos ramos industriais (IBGE)
+MAPA_NOMES_CURTOS_SETORES = {
+    "1 Ind": "Indústria Geral",
+    "2 Ind": "Indústrias extrativas",
+    "3 Ind": "Indústrias de transformação",
+    "3.10": "Produtos alimentícios",
+    "3.11": "Bebidas",
+    "3.12": "Produtos do fumo",
+    "3.13": "Produtos têxteis",
+    "3.14": "Artigos do vestuário",
+    "3.15": "Couros e calçados",
+    "3.16": "Produtos de madeira",
+    "3.17": "Celulose e papel",
+    "3.18": "Impressão e gravações",
+    "3.19": "Coque e biocombustíveis",
+    "3.20": "Produtos químicos",
+    "3.21": "Farmacêuticos e farmoquímicos",
+    "3.22": "Borracha e material plástico",
+    "3.23": "Minerais não metálicos",
+    "3.24": "Metalurgia",
+    "3.25": "Produtos de metal",
+    "3.26": "Informática e eletrônicos",
+    "3.27": "Máquinas e aparelhos elétricos",
+    "3.28": "Máquinas e equipamentos",
+    "3.29": "Veículos automotores",
+    "3.30": "Outros equipamentos de transporte",
+    "3.31": "Fabricação de móveis",
+    "3.32": "Produtos diversos",
+    "3.33": "Manutenção e reparação de máquinas",
+}
+
+
+def obter_nome_curto_setor(nome_completo):
+    """Retorna o rótulo conciso e padronizado do setor industrial."""
+    for chave, nome_curto in MAPA_NOMES_CURTOS_SETORES.items():
+        if nome_completo.startswith(chave):
+            return nome_curto
+    return nome_completo
+
+
 # Locais disponíveis
 locais_disponiveis = sorted(df_completo["LOCAL"].dropna().unique().tolist())
 
@@ -940,18 +980,31 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         f'</div>',
                         unsafe_allow_html=True,
                     )
-                    with st.expander(f"📋 Ver os {len(setores_sem_dados)} ramos industriais não investigados pelo IBGE em {nome_local}"):
+                    with st.expander(f"📋 Ramos industriais não investigados pelo IBGE em {nome_local} ({len(setores_sem_dados)})"):
                         st.markdown(
-                            f"Os seguintes ramos industriais não integram o plano amostral da PIM Regional do IBGE em **{nome_local}**:"
+                            f'<div style="font-size: 0.83rem; color: #64748b; margin-bottom: 8px;">'
+                            f'Atividades industriais sem amostragem na PIM Regional devido ao critério de representatividade estatística local:'
+                            f'</div>',
+                            unsafe_allow_html=True,
                         )
-                        col_s1, col_s2 = st.columns(2)
-                        meio_s = (len(setores_sem_dados) + 1) // 2
-                        with col_s1:
-                            for s in setores_sem_dados[:meio_s]:
-                                st.markdown(f"• **{s}**")
-                        with col_s2:
-                            for s in setores_sem_dados[meio_s:]:
-                                st.markdown(f"• **{s}**")
+                        num_cols = 3
+                        cols_exp = st.columns(num_cols)
+                        itens_por_col = (len(setores_sem_dados) + num_cols - 1) // num_cols
+
+                        for col_idx, col in enumerate(cols_exp):
+                            chunk = setores_sem_dados[col_idx * itens_por_col : (col_idx + 1) * itens_por_col]
+                            if chunk:
+                                html_itens = "".join([
+                                    f'<li style="margin-bottom: 3px;" title="{s}"><strong>{obter_nome_curto_setor(s)}</strong></li>'
+                                    for s in chunk
+                                ])
+                                with col:
+                                    st.markdown(
+                                        f'<ul style="margin: 0; padding-left: 16px; font-size: 0.83rem; color: #334155; line-height: 1.45;">'
+                                        f'{html_itens}'
+                                        f'</ul>',
+                                        unsafe_allow_html=True,
+                                    )
 
                 if resumo_extremos:
                     st.markdown("##### Extremos da Série e Diferenciais do Último Registro por Setor")
