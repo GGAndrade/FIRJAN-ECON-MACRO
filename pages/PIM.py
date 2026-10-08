@@ -505,11 +505,18 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                 eixo_y_min -= margem_y
                 eixo_y_max += margem_y
 
-                anos_span = ano_final - ano_inicial + 1
-                meses_ext = max(4, int(anos_span * 2.2))
                 data_min_graf = df_graf_linha["Data"].min()
                 data_max_graf = df_graf_linha["Data"].max()
-                data_max_ext = data_max_graf + pd.DateOffset(months=meses_ext)
+
+                palette_setores = [
+                    "#002d62", "#0072ce", "#e11d48", "#0d9488", "#d97706",
+                    "#7c3aed", "#059669", "#ea580c", "#0891b2", "#4f46e5",
+                    "#db2777", "#ca8a04", "#16a34a", "#2563eb", "#9333ea",
+                ]
+                cores_setores_map = {
+                    s: palette_setores[i % len(palette_setores)]
+                    for i, s in enumerate(setores_selecionados)
+                }
 
                 grafico_linha = (
                     alt.Chart(df_graf_linha)
@@ -518,7 +525,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         x=alt.X(
                             "Data:T",
                             axis=alt.Axis(format="%m/%Y", labelAngle=-45, title="Mês/Ano"),
-                            scale=alt.Scale(domain=[data_min_graf, data_max_ext]),
+                            scale=alt.Scale(domain=[data_min_graf, data_max_graf]),
                         ),
                         y=alt.Y(
                             "VALOR:Q",
@@ -527,6 +534,10 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         ),
                         color=alt.Color(
                             "SUBGRUPOS:N",
+                            scale=alt.Scale(
+                                domain=setores_selecionados,
+                                range=[cores_setores_map[s] for s in setores_selecionados],
+                            ),
                             legend=alt.Legend(title="Setor", orient="bottom"),
                         ),
                         tooltip=[
@@ -606,27 +617,20 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             r_min["Rotulo"] = f"Mín: {fmt_val(v_min_per)} ({r_min['Data pt']})"
                             min_list.append(r_min)
 
-                        # Ponto terminal com rótulo empilhado à direita
+                        # Ponto terminal
                         r_ult_dict = dict(r_ult)
                         r_ult_dict["Dif_Max_Per"] = fmt_dif(dif_max_per)
                         r_ult_dict["Dif_Min_Per"] = fmt_dif(dif_min_per)
                         r_ult_dict["Dif_Max_Hist"] = fmt_dif(dif_max_hist)
                         r_ult_dict["Dif_Min_Hist"] = fmt_dif(dif_min_hist)
                         r_ult_dict["Val_Formatado"] = fmt_val(v_ult)
-
-                        if idx_ult == idx_max_per and idx_ult == idx_min_per:
-                            r_ult_dict["Rotulo"] = f"Últ: {fmt_val(v_ult)}"
-                        elif idx_ult == idx_max_per:
-                            r_ult_dict["Rotulo"] = f"Últ (Máx): {fmt_val(v_ult)}\nDif. Mín: {fmt_dif(dif_min_per)}"
-                        elif idx_ult == idx_min_per:
-                            r_ult_dict["Rotulo"] = f"Últ (Mín): {fmt_val(v_ult)}\nDif. Máx: {fmt_dif(dif_max_per)}"
-                        else:
-                            r_ult_dict["Rotulo"] = f"Últ: {fmt_val(v_ult)}\nDif. Máx: {fmt_dif(dif_max_per)}\nDif. Mín: {fmt_dif(dif_min_per)}"
+                        r_ult_dict["Rotulo"] = f"Últ: {fmt_val(v_ult)}"
                         ult_list.append(r_ult_dict)
 
                         resumo_extremos.append(
                             {
                                 "Setor": s,
+                                "cor": cores_setores_map.get(s, "#002d62"),
                                 "Último Registrado": f"{fmt_val(v_ult)} ({r_ult['Data pt']})",
                                 "Dif. vs Máx (Período)": fmt_dif(dif_max_per),
                                 "Dif. vs Mín (Período)": fmt_dif(dif_min_per),
@@ -642,10 +646,6 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                 df_max = pd.DataFrame(max_list)
                 df_min = pd.DataFrame(min_list)
                 df_ult = pd.DataFrame(ult_list)
-                if not df_ult.empty:
-                    df_ult["dy"] = calcular_offsets_anti_colisao(
-                        df_ult["VALOR"].tolist(), eixo_y_min, eixo_y_max, height=450, min_gap=30
-                    )
 
                 camadas = [grafico_linha]
 
@@ -656,7 +656,14 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         .encode(
                             x="Data:T",
                             y="VALOR:Q",
-                            color=alt.Color("SUBGRUPOS:N", legend=None),
+                            color=alt.Color(
+                                "SUBGRUPOS:N",
+                                scale=alt.Scale(
+                                    domain=setores_selecionados,
+                                    range=[cores_setores_map[s] for s in setores_selecionados],
+                                ),
+                                legend=None,
+                            ),
                             tooltip=[
                                 alt.Tooltip("SUBGRUPOS:N", title="Setor"),
                                 alt.Tooltip("Data:T", title="Data do Máximo", format="%m/%Y"),
@@ -671,7 +678,14 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             x="Data:T",
                             y="VALOR:Q",
                             text="Rotulo:N",
-                            color=alt.Color("SUBGRUPOS:N", legend=None),
+                            color=alt.Color(
+                                "SUBGRUPOS:N",
+                                scale=alt.Scale(
+                                    domain=setores_selecionados,
+                                    range=[cores_setores_map[s] for s in setores_selecionados],
+                                ),
+                                legend=None,
+                            ),
                         )
                     )
                     camadas.extend([pontos_max, rotulos_max])
@@ -683,7 +697,14 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         .encode(
                             x="Data:T",
                             y="VALOR:Q",
-                            color=alt.Color("SUBGRUPOS:N", legend=None),
+                            color=alt.Color(
+                                "SUBGRUPOS:N",
+                                scale=alt.Scale(
+                                    domain=setores_selecionados,
+                                    range=[cores_setores_map[s] for s in setores_selecionados],
+                                ),
+                                legend=None,
+                            ),
                             tooltip=[
                                 alt.Tooltip("SUBGRUPOS:N", title="Setor"),
                                 alt.Tooltip("Data:T", title="Data do Mínimo", format="%m/%Y"),
@@ -698,7 +719,14 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             x="Data:T",
                             y="VALOR:Q",
                             text="Rotulo:N",
-                            color=alt.Color("SUBGRUPOS:N", legend=None),
+                            color=alt.Color(
+                                "SUBGRUPOS:N",
+                                scale=alt.Scale(
+                                    domain=setores_selecionados,
+                                    range=[cores_setores_map[s] for s in setores_selecionados],
+                                ),
+                                legend=None,
+                            ),
                         )
                     )
                     camadas.extend([pontos_min, rotulos_min])
@@ -710,7 +738,14 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         .encode(
                             x="Data:T",
                             y="VALOR:Q",
-                            color=alt.Color("SUBGRUPOS:N", legend=None),
+                            color=alt.Color(
+                                "SUBGRUPOS:N",
+                                scale=alt.Scale(
+                                    domain=setores_selecionados,
+                                    range=[cores_setores_map[s] for s in setores_selecionados],
+                                ),
+                                legend=None,
+                            ),
                             tooltip=[
                                 alt.Tooltip("SUBGRUPOS:N", title="Setor"),
                                 alt.Tooltip("Data:T", title="Última Data", format="%m/%Y"),
@@ -722,26 +757,27 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             ],
                         )
                     )
-                    rotulos_ult = (
-                        alt.Chart(df_ult)
-                        .mark_text(
-                            lineBreak="\n",
-                            lineHeight=11,
-                            fontSize=9.5,
-                            fontWeight="bold",
-                            align="left",
-                            baseline="middle",
-                            dx=10,
+                    camadas.append(pontos_ult)
+
+                    if len(setores_selecionados) == 1:
+                        rotulos_ult = (
+                            alt.Chart(df_ult)
+                            .mark_text(fontSize=11, fontWeight="bold", align="right", dx=-10, dy=-12)
+                            .encode(
+                                x="Data:T",
+                                y="VALOR:Q",
+                                text="Rotulo:N",
+                                color=alt.Color(
+                                    "SUBGRUPOS:N",
+                                    scale=alt.Scale(
+                                        domain=setores_selecionados,
+                                        range=[cores_setores_map[s] for s in setores_selecionados],
+                                    ),
+                                    legend=None,
+                                ),
+                            )
                         )
-                        .encode(
-                            x="Data:T",
-                            y="VALOR:Q",
-                            text="Rotulo:N",
-                            yOffset="dy:Q",
-                            color=alt.Color("SUBGRUPOS:N", legend=None),
-                        )
-                    )
-                    camadas.extend([pontos_ult, rotulos_ult])
+                        camadas.append(rotulos_ult)
 
                 if (is_pct or is_infl) and (v_min < 0 < v_max):
                     linha_zero = (
@@ -760,12 +796,48 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         }
                     }
 
+                # Cards de Destaque: Último Registrado e Diferenciais no Período
+                if resumo_extremos:
+                    st.markdown("##### Destaques do Último Período e Diferenciais")
+                    chunk_size = 4 if len(resumo_extremos) >= 4 else len(resumo_extremos)
+                    for i in range(0, len(resumo_extremos), chunk_size):
+                        chunk = resumo_extremos[i : i + chunk_size]
+                        cols = st.columns(len(chunk))
+                        for col, item in zip(cols, chunk):
+                            nome = item["Setor"]
+                            cor = item.get("cor", "#002d62")
+                            ult = item["Último Registrado"]
+                            dif_max = item["Dif. vs Máx (Período)"]
+                            dif_min = item["Dif. vs Mín (Período)"]
+                            with col:
+                                st.markdown(
+                                    f"""
+                                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-top: 3.5px solid {cor}; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                                        <div style="font-size: 0.82rem; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{nome}">{nome}</div>
+                                        <div style="margin-top: 4px; font-size: 0.72rem; color: #64748b; font-weight: 600;">Último Registrado:</div>
+                                        <div style="font-size: 1.20rem; font-weight: 800; color: #002d62; line-height: 1.2;">{ult}</div>
+                                        <div style="margin-top: 6px; border-top: 1px dashed #cbd5e1; padding-top: 5px; font-size: 0.74rem; color: #475569;">
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                                                <span style="color: #64748b;">Dif. vs Máx:</span>
+                                                <strong style="color: #002d62;">{dif_max}</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span style="color: #64748b;">Dif. vs Mín:</span>
+                                                <strong style="color: #002d62;">{dif_min}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True,
+                                )
+
                 st.altair_chart(grafico_linha_final, theme=None, use_container_width=True)
 
                 if resumo_extremos:
                     st.markdown("##### Extremos da Série e Diferenciais do Último Registro por Setor")
                     df_tab_extremos = pd.DataFrame(resumo_extremos)
-                    st.dataframe(df_tab_extremos, use_container_width=True, hide_index=True)
+                    cols_tab = [c for c in df_tab_extremos.columns if c != "cor"]
+                    st.dataframe(df_tab_extremos[cols_tab], use_container_width=True, hide_index=True)
 
     st.write("---")
 
@@ -1150,11 +1222,8 @@ with tab_comp:
             eixo_y_min_comp -= margem_y_comp
             eixo_y_max_comp += margem_y_comp
 
-            anos_span_comp = ano_fim_comp - ano_ini_comp + 1
-            meses_ext_comp = max(4, int(anos_span_comp * 2.2))
             data_min_comp = df_serie_comp["Data"].min()
             data_max_comp = df_serie_comp["Data"].max()
-            data_max_ext_comp = data_max_comp + pd.DateOffset(months=meses_ext_comp)
 
             graf_comp_linhas = (
                 alt.Chart(df_serie_comp)
@@ -1163,7 +1232,7 @@ with tab_comp:
                     x=alt.X(
                         "Data:T",
                         axis=alt.Axis(format="%m/%Y", labelAngle=-45, title="Mês/Ano"),
-                        scale=alt.Scale(domain=[data_min_comp, data_max_ext_comp]),
+                        scale=alt.Scale(domain=[data_min_comp, data_max_comp]),
                     ),
                     y=alt.Y(
                         "VALOR:Q",
@@ -1255,27 +1324,21 @@ with tab_comp:
                         r_min["Rotulo"] = f"Mín: {fmt_val_comp(v_min_per)} ({r_min['Data pt']})"
                         min_uf_list.append(r_min)
 
-                    # Ponto terminal com rótulo empilhado à direita
+                    # Ponto terminal
                     r_ult_dict = dict(r_ult)
                     r_ult_dict["Dif_Max_Per"] = fmt_dif_comp(dif_max_per)
                     r_ult_dict["Dif_Min_Per"] = fmt_dif_comp(dif_min_per)
                     r_ult_dict["Dif_Max_Hist"] = fmt_dif_comp(dif_max_hist)
                     r_ult_dict["Dif_Min_Hist"] = fmt_dif_comp(dif_min_hist)
                     r_ult_dict["Val_Formatado"] = fmt_val_comp(v_ult)
-
-                    if idx_ult == idx_max_uf and idx_ult == idx_min_uf:
-                        r_ult_dict["Rotulo"] = f"Últ: {fmt_val_comp(v_ult)}"
-                    elif idx_ult == idx_max_uf:
-                        r_ult_dict["Rotulo"] = f"Últ (Máx): {fmt_val_comp(v_max_per)}\nDif. Mín: {fmt_dif_comp(dif_min_per)}"
-                    elif idx_ult == idx_min_uf:
-                        r_ult_dict["Rotulo"] = f"Últ (Mín): {fmt_val_comp(v_min_per)}\nDif. Máx: {fmt_dif_comp(dif_max_per)}"
-                    else:
-                        r_ult_dict["Rotulo"] = f"Últ: {fmt_val_comp(v_ult)}\nDif. Máx: {fmt_dif_comp(dif_max_per)}\nDif. Mín: {fmt_dif_comp(dif_min_per)}"
+                    r_ult_dict["Rotulo"] = f"Últ: {fmt_val_comp(v_ult)}"
                     ult_uf_list.append(r_ult_dict)
 
+                    cor_uf_item = cores_uf_map.get(u, palette_fallback[len(resumo_extremos_uf) % len(palette_fallback)])
                     resumo_extremos_uf.append(
                         {
                             "UF / Local": u,
+                            "cor": cor_uf_item,
                             "Último Registrado": f"{fmt_val_comp(v_ult)} ({r_ult['Data pt']})",
                             "Dif. vs Máx (Período)": fmt_dif_comp(dif_max_per),
                             "Dif. vs Mín (Período)": fmt_dif_comp(dif_min_per),
@@ -1291,10 +1354,6 @@ with tab_comp:
             df_max_uf = pd.DataFrame(max_uf_list)
             df_min_uf = pd.DataFrame(min_uf_list)
             df_ult_uf = pd.DataFrame(ult_uf_list)
-            if not df_ult_uf.empty:
-                df_ult_uf["dy"] = calcular_offsets_anti_colisao(
-                    df_ult_uf["VALOR"].tolist(), eixo_y_min_comp, eixo_y_max_comp, height=450, min_gap=30
-                )
 
             camadas_uf = [graf_comp_linhas]
 
@@ -1391,30 +1450,24 @@ with tab_comp:
                         ],
                     )
                 )
-                rotulos_ult_uf = (
-                    alt.Chart(df_ult_uf)
-                    .mark_text(
-                        lineBreak="\n",
-                        lineHeight=11,
-                        fontSize=9.5,
-                        fontWeight="bold",
-                        align="left",
-                        baseline="middle",
-                        dx=10,
+                camadas_uf.append(pontos_ult_uf)
+
+                if len(ufs_selecionadas_comp) == 1:
+                    rotulos_ult_uf = (
+                        alt.Chart(df_ult_uf)
+                        .mark_text(fontSize=11, fontWeight="bold", align="right", dx=-10, dy=-12)
+                        .encode(
+                            x="Data:T",
+                            y="VALOR:Q",
+                            text="Rotulo:N",
+                            color=alt.Color(
+                                "LOCAL:N",
+                                scale=alt.Scale(domain=ufs_selecionadas_comp, range=cores_selecionadas),
+                                legend=None,
+                            ),
+                        )
                     )
-                    .encode(
-                        x="Data:T",
-                        y="VALOR:Q",
-                        text="Rotulo:N",
-                        yOffset="dy:Q",
-                        color=alt.Color(
-                            "LOCAL:N",
-                            scale=alt.Scale(domain=ufs_selecionadas_comp, range=cores_selecionadas),
-                            legend=None,
-                        ),
-                    )
-                )
-                camadas_uf.extend([pontos_ult_uf, rotulos_ult_uf])
+                    camadas_uf.append(rotulos_ult_uf)
 
             if (is_pct_comp or is_infl_comp) and (v_min_comp < 0 < v_max_comp):
                 regra_zero = (
@@ -1434,12 +1487,48 @@ with tab_comp:
                     }
                 }
 
+            # Cards de Destaque: Último Registrado e Diferenciais no Período
+            if resumo_extremos_uf:
+                st.markdown("##### Destaques do Último Período e Diferenciais")
+                chunk_size_comp = 4 if len(resumo_extremos_uf) >= 4 else len(resumo_extremos_uf)
+                for i in range(0, len(resumo_extremos_uf), chunk_size_comp):
+                    chunk = resumo_extremos_uf[i : i + chunk_size_comp]
+                    cols = st.columns(len(chunk))
+                    for col, item in zip(cols, chunk):
+                        nome = item["UF / Local"]
+                        cor = item.get("cor", "#002d62")
+                        ult = item["Último Registrado"]
+                        dif_max = item["Dif. vs Máx (Período)"]
+                        dif_min = item["Dif. vs Mín (Período)"]
+                        with col:
+                            st.markdown(
+                                f"""
+                                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-top: 3.5px solid {cor}; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                                    <div style="font-size: 0.82rem; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{nome}">{nome}</div>
+                                    <div style="margin-top: 4px; font-size: 0.72rem; color: #64748b; font-weight: 600;">Último Registrado:</div>
+                                    <div style="font-size: 1.20rem; font-weight: 800; color: #002d62; line-height: 1.2;">{ult}</div>
+                                    <div style="margin-top: 6px; border-top: 1px dashed #cbd5e1; padding-top: 5px; font-size: 0.74rem; color: #475569;">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                                            <span style="color: #64748b;">Dif. vs Máx:</span>
+                                            <strong style="color: #002d62;">{dif_max}</strong>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between;">
+                                            <span style="color: #64748b;">Dif. vs Mín:</span>
+                                            <strong style="color: #002d62;">{dif_min}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
             st.altair_chart(graf_comp_linhas_final, theme=None, use_container_width=True)
 
             if resumo_extremos_uf:
                 st.markdown("##### Extremos da Série e Diferenciais do Último Registro por UF")
                 df_tab_extremos_uf = pd.DataFrame(resumo_extremos_uf)
-                st.dataframe(df_tab_extremos_uf, use_container_width=True, hide_index=True)
+                cols_tab_uf = [c for c in df_tab_extremos_uf.columns if c != "cor"]
+                st.dataframe(df_tab_extremos_uf[cols_tab_uf], use_container_width=True, hide_index=True)
 
     # Ranking Nacional de todas as UFs para o mês selecionado
     if mes_comp:
