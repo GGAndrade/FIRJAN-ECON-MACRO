@@ -456,10 +456,29 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
     # ----------------------------------------------------
     st.write("#### Evolução dos setores industriais")
 
-    todos_os_setores = sorted(df_var["SUBGRUPOS"].dropna().unique().tolist())
-    padrao_setores = [
-        s for s in todos_os_setores if any(s.startswith(p) for p in ["1 Ind", "2 Ind", "3 Ind"])
-    ]
+    # Apenas setores que efetivamente possuem observações divulgadas para esta localidade e variável
+    setores_com_dados = (
+        df_var.dropna(subset=["VALOR"])["SUBGRUPOS"]
+        .unique()
+        .tolist()
+    )
+    todos_os_setores = sorted([s for s in df_var["SUBGRUPOS"].dropna().unique() if s in setores_com_dados])
+
+    # Identificar se a Indústria Geral é equivalente à Indústria de Transformação (UF sem extrativa no IBGE)
+    tem_extrativa = any(s.startswith("2 Ind") for s in todos_os_setores)
+    sub_1_presente = any(s.startswith("1 Ind") for s in todos_os_setores)
+    sub_3_presente = any(s.startswith("3 Ind") for s in todos_os_setores)
+    geral_equiv_transf = sub_1_presente and sub_3_presente and not tem_extrativa
+
+    if geral_equiv_transf:
+        # Em UFs sem extrativa, Geral == Transformação. Selecionamos por padrão a Indústria Geral e os ramos principais
+        ramos_desagregados = [s for s in todos_os_setores if not any(s.startswith(p) for p in ["1 Ind", "2 Ind", "3 Ind"])]
+        padrao_setores = [s for s in todos_os_setores if s.startswith("1 Ind")] + ramos_desagregados[:2]
+    else:
+        padrao_setores = [
+            s for s in todos_os_setores if any(s.startswith(p) for p in ["1 Ind", "2 Ind", "3 Ind"])
+        ]
+
     if not padrao_setores:
         padrao_setores = todos_os_setores[:3]
 
@@ -820,11 +839,16 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             cor = item.get("cor", "#002d62")
                             ult = item["Último Registrado"]
                             dif_max = item["Dif. vs Máx (Período)"]
+                            subtitulo_equivalencia = ""
+                            if geral_equiv_transf and nome.startswith("3 Ind"):
+                                subtitulo_equivalencia = '<div style="font-size: 0.68rem; color: #0072ce; font-weight: 600; margin-top: 1px;">(100% da Indústria Geral)</div>'
+
                             with col:
                                 st.markdown(
                                     f"""
                                     <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-top: 3.5px solid {cor}; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
                                         <div style="font-size: 0.82rem; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{nome}">{nome}</div>
+                                        {subtitulo_equivalencia}
                                         <div style="margin-top: 4px; font-size: 0.72rem; color: #64748b; font-weight: 600;">Último Registrado:</div>
                                         <div style="font-size: 1.20rem; font-weight: 800; color: #002d62; line-height: 1.2;">{ult}</div>
                                         <div style="margin-top: 6px; border-top: 1px dashed #cbd5e1; padding-top: 5px; font-size: 0.74rem; color: #475569;">
@@ -839,6 +863,16 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                                 )
 
                 st.altair_chart(grafico_linha_final, theme=None, use_container_width=True)
+
+                if any(s.startswith("1 Ind") for s in setores_selecionados) and any(s.startswith("3 Ind") for s in setores_selecionados) and geral_equiv_transf:
+                    st.markdown(
+                        f'<div class="nota-metodologica">'
+                        f'<strong>Nota Metodológica (IBGE - PIM Regional):</strong> Em {nome_local}, a <strong>Indústria Geral</strong> '
+                        f'é composta integralmente pela <strong>Indústria de Transformação</strong> (peso de 100%), pois o IBGE não investiga a seção de '
+                        f'Indústrias Extrativas no estado. Por essa razão estrutural da pesquisa, as duas séries possuem <strong>valores exatamente idênticos</strong> ao longo de todo o histórico.'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
                 if setores_cobertura_recente:
                     detalhes_setores = "; ".join([f"<strong>{s}</strong> (a partir de {dt})" for s, dt in setores_cobertura_recente])
