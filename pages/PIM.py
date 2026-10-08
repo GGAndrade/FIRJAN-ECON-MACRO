@@ -181,32 +181,69 @@ def carregar_dados_pim(caminho_ou_arquivo):
     df["Ano"] = df["Data"].dt.year
     df["VALOR"] = pd.to_numeric(df["VALOR"], errors="coerce")
 
+    if "LOCAL" not in df.columns:
+        df["LOCAL"] = "Brasil"
+
     # Desduplicar registros garantindo unicidade por Local, Data, Variavel e Subgrupo
     df = df.drop_duplicates(subset=["LOCAL", "Data", "VARIAVEL", "SUBGRUPOS"], keep="last")
     return df
 
 
-# Gestão do Arquivo Parquet (Padrão: pim_agregado.parquet, com opção de upload)
+# Seção de Entrada e Upload de Arquivo Parquet (Padrão: pim_agregado.parquet, como no PIM-BR)
+col_up1, col_up2 = st.columns([1, 1])
+
+with col_up1:
+    BD = st.file_uploader(
+        label="Arquivo Parquet",
+        type=["parquet"],
+        key="pim_bd",
+        help="Envie um arquivo Parquet com dados atualizados da PIM (IBGE) para substituir a base padrão e atualizar todos os indicadores, gráficos e tabelas.",
+    )
+
 default_parquet = "PIM_BR/pim_agregado.parquet"
 if not os.path.exists(default_parquet):
     # Fallback para teste_pim se necessário
     if os.path.exists("PIM_BR/teste_pim.parquet"):
         default_parquet = "PIM_BR/teste_pim.parquet"
 
-with st.expander("Base de dados e upload de atualização (opcional)"):
-    arquivo_upload = st.file_uploader(
-        label="Substituir base com novo arquivo Parquet",
-        type=["parquet"],
-        key="pim_agregado_upload",
-        help="Envie um arquivo Parquet atualizado da PIM-PF caso deseje sobrepor a base padrão.",
+# Validação da existência do arquivo
+if BD is None and not os.path.exists(default_parquet):
+    st.error(
+        f"Arquivo padrão `{default_parquet}` não encontrado. Por favor, faça o upload de um arquivo Parquet válido."
     )
+    st.stop()
 
-fonte_arquivo = arquivo_upload if arquivo_upload is not None else default_parquet
-
+# Carregamento dos dados
 try:
-    df_completo = carregar_dados_pim(fonte_arquivo)
+    if BD is not None:
+        df_completo = carregar_dados_pim(BD)
+        st.markdown(
+            f'<div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 16px; color: #15803d; font-size: 14px; margin: 8px 0 16px 0;">'
+            f'✅ <strong>Base atualizada em memória:</strong> Utilizando arquivo Parquet enviado: <code>{BD.name}</code>. '
+            f'Todos os indicadores, gráficos e tabelas foram recalculados.'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        with col_up2:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            if st.button("💾 Salvar arquivo como base permanente padrão", help="Substitui permanentemente o arquivo pim_agregado.parquet no servidor para futuras sessões."):
+                try:
+                    with open("PIM_BR/pim_agregado.parquet", "wb") as f:
+                        f.write(BD.getbuffer())
+                    st.success("Base consolidada padrão atualizada com sucesso em `PIM_BR/pim_agregado.parquet`!")
+                    st.cache_data.clear()
+                except Exception as e_save:
+                    st.warning(f"Não foi possível salvar em disco: {e_save}")
+    else:
+        df_completo = carregar_dados_pim(default_parquet)
+        st.markdown(
+            f'<div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 16px; color: #1e40af; font-size: 14px; margin: 8px 0 16px 0;">'
+            f'ℹ️ Utilizando a base consolidada padrão (<code>{default_parquet}</code>).'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 except Exception as e:
-    st.error(f"Erro ao carregar os dados: {e}. Verifique o arquivo Parquet.")
+    st.error(f"Erro ao ler o arquivo Parquet: {e}. Verifique o formato do arquivo e tente novamente.")
     st.stop()
 
 # Validação das colunas mínimas
@@ -465,6 +502,18 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
     )
     todos_os_setores = sorted([s for s in df_var["SUBGRUPOS"].dropna().unique() if s in setores_com_dados])
 
+    # Lista de todos os setores investigados na PIM para esta variável no âmbito nacional
+    todos_setores_pesquisa = sorted(
+        df_completo[df_completo["VARIAVEL"] == var_escolhida]
+        .dropna(subset=["VALOR"])["SUBGRUPOS"]
+        .unique()
+        .tolist()
+    )
+    if not todos_setores_pesquisa:
+        todos_setores_pesquisa = sorted(df_completo["SUBGRUPOS"].dropna().unique().tolist())
+
+    setores_sem_dados = [s for s in todos_setores_pesquisa if s not in todos_os_setores]
+
     # Identificar se a Indústria Geral é equivalente à Indústria de Transformação (UF sem extrativa no IBGE)
     tem_extrativa = any(s.startswith("2 Ind") for s in todos_os_setores)
     sub_1_presente = any(s.startswith("1 Ind") for s in todos_os_setores)
@@ -490,6 +539,12 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
         key=f"{prefixo}_setores_selecionados",
         help="Selecione um ou mais setores para visualizar e comparar as curvas temporais.",
     )
+
+    if setores_sem_dados and nome_local != "Brasil":
+        st.caption(
+            f"ℹ️ Exibindo os **{len(todos_os_setores)} setores industriais** pesquisados pelo IBGE em {nome_local} "
+            f"({len(setores_sem_dados)} ramos da indústria nacional não integram o plano amostral desta UF)."
+        )
 
     if not setores_selecionados:
         st.warning("Selecione pelo menos um setor industrial para exibir a série temporal.")
@@ -873,6 +928,31 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         unsafe_allow_html=True,
                     )
 
+                if setores_sem_dados and nome_local != "Brasil":
+                    st.markdown(
+                        f'<div class="nota-metodologica">'
+                        f'<strong>Nota Metodológica Oficial (IBGE - Cobertura Amostral em {nome_local}):</strong> '
+                        f'A Pesquisa Industrial Mensal Regional do IBGE investiga exclusivamente as atividades com relevância estatística '
+                        f'mínima na estrutura produtiva do estado. Em <strong>{nome_local}</strong>, o IBGE <strong>não investiga ou não divulga '
+                        f'{len(setores_sem_dados)} ramos da indústria nacional</strong>'
+                        f'{" (incluindo a seção de <em>Indústrias Extrativas</em>, de modo que a Transformação representa 100% da Indústria Geral)" if not tem_extrativa else ""}. '
+                        f'Para consultar esses setores no plano nacional consolidado, consulte a aba <strong>PIM-BR (Brasil)</strong>.'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                    with st.expander(f"📋 Ver os {len(setores_sem_dados)} ramos industriais não investigados pelo IBGE em {nome_local}"):
+                        st.markdown(
+                            f"Os seguintes ramos industriais não integram o plano amostral da PIM Regional do IBGE em **{nome_local}**:"
+                        )
+                        col_s1, col_s2 = st.columns(2)
+                        meio_s = (len(setores_sem_dados) + 1) // 2
+                        with col_s1:
+                            for s in setores_sem_dados[:meio_s]:
+                                st.markdown(f"• **{s}**")
+                        with col_s2:
+                            for s in setores_sem_dados[meio_s:]:
+                                st.markdown(f"• **{s}**")
+
                 if resumo_extremos:
                     st.markdown("##### Extremos da Série e Diferenciais do Último Registro por Setor")
                     df_tab_extremos = pd.DataFrame(resumo_extremos)
@@ -1205,6 +1285,14 @@ with tab_comp:
             .dropna(subset=["VALOR"])
             .copy()
         )
+        ufs_com_dados_comp = df_serie_comp["LOCAL"].unique().tolist()
+        ufs_sem_dados_comp = [u for u in ufs_selecionadas_comp if u not in ufs_com_dados_comp]
+        if ufs_sem_dados_comp:
+            st.info(
+                f"ℹ️ **Nota Metodológica (Cobertura Amostral):** O setor **{setor_comp_escolhido}** não é investigado "
+                f"ou não possui dados divulgados pelo IBGE para: **{', '.join(ufs_sem_dados_comp)}**."
+            )
+
         anos_comp = sorted(df_serie_comp["Ano"].dropna().unique().astype(int).tolist())
 
         if anos_comp:
