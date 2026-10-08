@@ -19,6 +19,7 @@ from func import (
     set_y_max,
     to_excel2,
     card_destaque_html,
+    obter_nome_curto_setor,
 )
 
 ###### CONFIGURAÇÕES INICIAIS
@@ -576,6 +577,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
         label="Setores / Atividades Industriais",
         options=todos_os_setores,
         default=padrao_setores,
+        format_func=obter_nome_curto_setor,
         key=f"{prefixo}_setores_selecionados",
         help="Selecione um ou mais setores para visualizar e comparar as curvas temporais.",
     )
@@ -610,7 +612,8 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
 
             df_graf_linha = df_graf_valido[
                 (df_graf_valido["Ano"] >= ano_inicial) & (df_graf_valido["Ano"] <= ano_final)
-            ]
+            ].copy()
+            df_graf_linha["Setor"] = df_graf_linha["SUBGRUPOS"].apply(obter_nome_curto_setor)
 
             if df_graf_linha.empty:
                 st.info("Nenhum registro para o período e setores selecionados.")
@@ -635,14 +638,15 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         if min_s > data_min_graf:
                             setores_cobertura_recente.append((s, min_s.strftime("%m/%Y")))
 
+                nomes_curtos_selecionados = [obter_nome_curto_setor(s) for s in setores_selecionados]
                 palette_setores = [
                     "#002d62", "#0072ce", "#e11d48", "#0d9488", "#d97706",
                     "#7c3aed", "#059669", "#ea580c", "#0891b2", "#4f46e5",
                     "#db2777", "#ca8a04", "#16a34a", "#2563eb", "#9333ea",
                 ]
                 cores_setores_map = {
-                    s: palette_setores[i % len(palette_setores)]
-                    for i, s in enumerate(setores_selecionados)
+                    nc: palette_setores[i % len(palette_setores)]
+                    for i, nc in enumerate(nomes_curtos_selecionados)
                 }
 
                 grafico_linha = (
@@ -660,16 +664,17 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             title=medida_label,
                         ),
                         color=alt.Color(
-                            "SUBGRUPOS:N",
+                            "Setor:N",
                             scale=alt.Scale(
-                                domain=setores_selecionados,
-                                range=[cores_setores_map[s] for s in setores_selecionados],
+                                domain=nomes_curtos_selecionados,
+                                range=[cores_setores_map[nc] for nc in nomes_curtos_selecionados],
                             ),
                             legend=alt.Legend(title="Setor", orient="bottom"),
                         ),
                         tooltip=[
                             alt.Tooltip("Data:T", title="Data", format="%m/%Y"),
-                            alt.Tooltip("SUBGRUPOS:N", title="Setor"),
+                            alt.Tooltip("Setor:N", title="Setor"),
+                            alt.Tooltip("SUBGRUPOS:N", title="Descrição Técnica Oficial (IBGE)"),
                             alt.Tooltip("VALOR:Q", title="Valor", format=".2f"),
                         ],
                     )
@@ -699,6 +704,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                     return f"{val:+.2f} {unidade}"
 
                 for s in setores_selecionados:
+                    nome_curto_s = obter_nome_curto_setor(s)
                     sub_per = df_graf_linha[df_graf_linha["SUBGRUPOS"] == s].dropna(subset=["VALOR"])
                     sub_hist = df_var[df_var["SUBGRUPOS"] == s].dropna(subset=["VALOR"])
 
@@ -738,14 +744,17 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
 
                         # Pontos históricos de Máximo e Mínimo (apenas se anteriores ao ponto final)
                         if idx_max_per != idx_ult:
+                            r_max["Setor"] = nome_curto_s
                             r_max["Rotulo"] = f"Máx: {fmt_val(v_max_per)} ({r_max['Data pt']})"
                             max_list.append(r_max)
                         if idx_min_per != idx_ult:
+                            r_min["Setor"] = nome_curto_s
                             r_min["Rotulo"] = f"Mín: {fmt_val(v_min_per)} ({r_min['Data pt']})"
                             min_list.append(r_min)
 
                         # Ponto terminal
                         r_ult_dict = dict(r_ult)
+                        r_ult_dict["Setor"] = nome_curto_s
                         r_ult_dict["Dif_Max_Per"] = fmt_dif(dif_max_per)
                         r_ult_dict["Dif_Min_Per"] = fmt_dif(dif_min_per)
                         r_ult_dict["Dif_Max_Hist"] = fmt_dif(dif_max_hist)
@@ -756,8 +765,9 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
 
                         resumo_extremos.append(
                             {
-                                "Setor": s,
-                                "cor": cores_setores_map.get(s, "#002d62"),
+                                "Setor": nome_curto_s,
+                                "Descrição Oficial (IBGE)": s,
+                                "cor": cores_setores_map.get(nome_curto_s, "#002d62"),
                                 "Último Registrado": f"{fmt_val(v_ult)} ({r_ult['Data pt']})",
                                 "Dif. vs Máx (Período)": fmt_dif(dif_max_per),
                                 "Dif. vs Mín (Período)": fmt_dif(dif_min_per),
@@ -784,15 +794,16 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             x="Data:T",
                             y="VALOR:Q",
                             color=alt.Color(
-                                "SUBGRUPOS:N",
+                                "Setor:N",
                                 scale=alt.Scale(
-                                    domain=setores_selecionados,
-                                    range=[cores_setores_map[s] for s in setores_selecionados],
+                                    domain=nomes_curtos_selecionados,
+                                    range=[cores_setores_map[nc] for nc in nomes_curtos_selecionados],
                                 ),
                                 legend=None,
                             ),
                             tooltip=[
-                                alt.Tooltip("SUBGRUPOS:N", title="Setor"),
+                                alt.Tooltip("Setor:N", title="Setor"),
+                                alt.Tooltip("SUBGRUPOS:N", title="Descrição Técnica Oficial (IBGE)"),
                                 alt.Tooltip("Data:T", title="Data do Máximo", format="%m/%Y"),
                                 alt.Tooltip("VALOR:Q", title="Valor Máximo", format="+.2f" if (is_pct or is_infl) else ".2f"),
                             ],
@@ -806,10 +817,10 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             y="VALOR:Q",
                             text="Rotulo:N",
                             color=alt.Color(
-                                "SUBGRUPOS:N",
+                                "Setor:N",
                                 scale=alt.Scale(
-                                    domain=setores_selecionados,
-                                    range=[cores_setores_map[s] for s in setores_selecionados],
+                                    domain=nomes_curtos_selecionados,
+                                    range=[cores_setores_map[nc] for nc in nomes_curtos_selecionados],
                                 ),
                                 legend=None,
                             ),
@@ -825,15 +836,16 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             x="Data:T",
                             y="VALOR:Q",
                             color=alt.Color(
-                                "SUBGRUPOS:N",
+                                "Setor:N",
                                 scale=alt.Scale(
-                                    domain=setores_selecionados,
-                                    range=[cores_setores_map[s] for s in setores_selecionados],
+                                    domain=nomes_curtos_selecionados,
+                                    range=[cores_setores_map[nc] for nc in nomes_curtos_selecionados],
                                 ),
                                 legend=None,
                             ),
                             tooltip=[
-                                alt.Tooltip("SUBGRUPOS:N", title="Setor"),
+                                alt.Tooltip("Setor:N", title="Setor"),
+                                alt.Tooltip("SUBGRUPOS:N", title="Descrição Técnica Oficial (IBGE)"),
                                 alt.Tooltip("Data:T", title="Data do Mínimo", format="%m/%Y"),
                                 alt.Tooltip("VALOR:Q", title="Valor Mínimo", format="+.2f" if (is_pct or is_infl) else ".2f"),
                             ],
@@ -847,10 +859,10 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             y="VALOR:Q",
                             text="Rotulo:N",
                             color=alt.Color(
-                                "SUBGRUPOS:N",
+                                "Setor:N",
                                 scale=alt.Scale(
-                                    domain=setores_selecionados,
-                                    range=[cores_setores_map[s] for s in setores_selecionados],
+                                    domain=nomes_curtos_selecionados,
+                                    range=[cores_setores_map[nc] for nc in nomes_curtos_selecionados],
                                 ),
                                 legend=None,
                             ),
@@ -866,15 +878,16 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                             x="Data:T",
                             y="VALOR:Q",
                             color=alt.Color(
-                                "SUBGRUPOS:N",
+                                "Setor:N",
                                 scale=alt.Scale(
-                                    domain=setores_selecionados,
-                                    range=[cores_setores_map[s] for s in setores_selecionados],
+                                    domain=nomes_curtos_selecionados,
+                                    range=[cores_setores_map[nc] for nc in nomes_curtos_selecionados],
                                 ),
                                 legend=None,
                             ),
                             tooltip=[
-                                alt.Tooltip("SUBGRUPOS:N", title="Setor"),
+                                alt.Tooltip("Setor:N", title="Setor"),
+                                alt.Tooltip("SUBGRUPOS:N", title="Descrição Técnica Oficial (IBGE)"),
                                 alt.Tooltip("Data:T", title="Última Data", format="%m/%Y"),
                                 alt.Tooltip("Val_Formatado:N", title="Último Valor"),
                                 alt.Tooltip("Dif_Max_Per:N", title="Dif. vs Máx (Período)"),
@@ -895,10 +908,10 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                                 y="VALOR:Q",
                                 text="Rotulo:N",
                                 color=alt.Color(
-                                    "SUBGRUPOS:N",
+                                    "Setor:N",
                                     scale=alt.Scale(
-                                        domain=setores_selecionados,
-                                        range=[cores_setores_map[s] for s in setores_selecionados],
+                                        domain=nomes_curtos_selecionados,
+                                        range=[cores_setores_map[nc] for nc in nomes_curtos_selecionados],
                                     ),
                                     legend=None,
                                 ),
@@ -932,16 +945,17 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                         cols = st.columns(len(chunk))
                         for col, item in zip(cols, chunk):
                             nome = item["Setor"]
+                            desc_oficial = item.get("Descrição Oficial (IBGE)", nome)
                             cor = item.get("cor", "#002d62")
                             ult = item["Último Registrado"]
                             dif_max = item["Dif. vs Máx (Período)"]
                             subtitulo_equivalencia = ""
-                            if geral_equiv_transf and nome.startswith("3 Ind"):
+                            if geral_equiv_transf and desc_oficial.startswith("3 Ind"):
                                 subtitulo_equivalencia = "(100% da Indústria Geral)"
 
                             with col:
                                 st.markdown(
-                                    card_destaque_html(nome, cor, ult, dif_max, subtitulo_equivalencia),
+                                    card_destaque_html(nome, cor, ult, dif_max, subtitulo_equivalencia, tooltip_desc=desc_oficial),
                                     unsafe_allow_html=True,
                                 )
 
@@ -958,7 +972,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
                     )
 
                 if setores_cobertura_recente:
-                    detalhes_setores = "; ".join([f"<strong>{s}</strong> (a partir de {dt})" for s, dt in setores_cobertura_recente])
+                    detalhes_setores = "; ".join([f"<strong title='{s}'>{obter_nome_curto_setor(s)}</strong> (a partir de {dt})" for s, dt in setores_cobertura_recente])
                     st.markdown(
                         f'<div class="nota-metodologica">'
                         f'<strong>Nota de Cobertura Histórica (IBGE - PIM Regional):</strong> '
@@ -1074,6 +1088,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
         )
     else:
         df_ranking = df_ranking.copy()
+        df_ranking["Setor"] = df_ranking["SUBGRUPOS"].apply(obter_nome_curto_setor)
         df_ranking["Cor_Barra"] = df_ranking["VALOR"].apply(
             lambda v: "#002d62" if v >= 0 else "#b90e0c"
         )
@@ -1084,13 +1099,14 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
             .encode(
                 x=alt.X("VALOR:Q", title=medida_label),
                 y=alt.Y(
-                    "SUBGRUPOS:N",
+                    "Setor:N",
                     sort=alt.EncodingSortField(field="VALOR", order="descending"),
                     title="",
                 ),
                 color=alt.Color("Cor_Barra:N", scale=None, legend=None),
                 tooltip=[
-                    alt.Tooltip("SUBGRUPOS:N", title="Setor"),
+                    alt.Tooltip("Setor:N", title="Setor"),
+                    alt.Tooltip("SUBGRUPOS:N", title="Descrição Técnica Oficial (IBGE)"),
                     alt.Tooltip("VALOR:Q", title="Valor", format=".2f"),
                 ],
             )
@@ -1107,7 +1123,7 @@ def render_dashboard_uf(df_uf, nome_local, prefixo):
             .encode(
                 x="VALOR:Q",
                 y=alt.Y(
-                    "SUBGRUPOS:N",
+                    "Setor:N",
                     sort=alt.EncodingSortField(field="VALOR", order="descending"),
                 ),
                 text=alt.Text(
@@ -1277,6 +1293,7 @@ with tab_comp:
             "Setor / Atividade",
             options=setores_comp,
             index=idx_setor_padrao,
+            format_func=obter_nome_curto_setor,
             key="comp_setor",
         )
 
@@ -1697,7 +1714,9 @@ with tab_comp:
     # Ranking Nacional de todas as UFs para o mês selecionado
     if mes_comp:
         st.write("---")
-        st.markdown(f"#### Ranking das UFs em {mes_comp_str} — {setor_comp_escolhido}")
+        st.markdown(f"#### Ranking das UFs em {mes_comp_str} — {obter_nome_curto_setor(setor_comp_escolhido)}")
+        if setor_comp_escolhido != obter_nome_curto_setor(setor_comp_escolhido):
+            st.caption(f"ℹ️ **Descrição Oficial (IBGE):** {setor_comp_escolhido}")
 
         df_rank_uf = (
             df_comp_filtrado[df_comp_filtrado["Data"] == mes_comp]

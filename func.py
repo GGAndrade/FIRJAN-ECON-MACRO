@@ -191,7 +191,47 @@ def custom_style():
     )
 
 
-def card_destaque_html(nome, cor, ultimo, dif_max, subtitulo=""):
+# Mapeamento para nomes amigáveis e concisos dos ramos industriais (IBGE)
+MAPA_NOMES_CURTOS_SETORES = {
+    "1 Ind": "Indústria Geral",
+    "2 Ind": "Indústrias extrativas",
+    "3 Ind": "Indústrias de transformação",
+    "3.10": "Produtos alimentícios",
+    "3.11": "Bebidas",
+    "3.12": "Produtos do fumo",
+    "3.13": "Produtos têxteis",
+    "3.14": "Artigos do vestuário",
+    "3.15": "Couros e calçados",
+    "3.16": "Produtos de madeira",
+    "3.17": "Celulose e papel",
+    "3.18": "Impressão e gravações",
+    "3.19": "Coque e biocombustíveis",
+    "3.20": "Produtos químicos",
+    "3.21": "Farmacêuticos e farmoquímicos",
+    "3.22": "Borracha e material plástico",
+    "3.23": "Minerais não metálicos",
+    "3.24": "Metalurgia",
+    "3.25": "Produtos de metal",
+    "3.26": "Informática e eletrônicos",
+    "3.27": "Máquinas e aparelhos elétricos",
+    "3.28": "Máquinas e equipamentos",
+    "3.29": "Veículos automotores",
+    "3.30": "Outros equipamentos de transporte",
+    "3.31": "Fabricação de móveis",
+    "3.32": "Produtos diversos",
+    "3.33": "Manutenção e reparação de máquinas",
+}
+
+
+def obter_nome_curto_setor(nome_completo):
+    """Retorna o rótulo conciso e padronizado do setor industrial."""
+    for chave, nome_curto in MAPA_NOMES_CURTOS_SETORES.items():
+        if nome_completo.startswith(chave):
+            return nome_curto
+    return nome_completo
+
+
+def card_destaque_html(nome, cor, ultimo, dif_max, subtitulo="", tooltip_desc=""):
     """Gera o HTML do card de destaque em uma única linha.
 
     Sem quebras de linha nem indentação: caso contrário o parser Markdown do
@@ -203,11 +243,13 @@ def card_destaque_html(nome, cor, ultimo, dif_max, subtitulo=""):
         if subtitulo
         else ""
     )
+    title_text = (tooltip_desc if tooltip_desc else nome).replace('"', '&quot;')
     return (
         f'<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-top:3.5px solid {cor};'
-        f'border-radius:8px;padding:10px 14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">'
+        f'border-radius:8px;padding:10px 14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);"'
+        f' title="{title_text}">'
         f'<div style="font-size:0.82rem;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;'
-        f'text-overflow:ellipsis;" title="{nome}">{nome}</div>'
+        f'text-overflow:ellipsis;" title="{title_text}">{nome}</div>'
         f'{sub_html}'
         f'<div style="margin-top:4px;font-size:0.72rem;color:#64748b;font-weight:600;">Último Registrado:</div>'
         f'<div style="font-size:1.20rem;font-weight:800;color:#002d62;line-height:1.2;">{ultimo}</div>'
