@@ -1,0 +1,15 @@
+name: Keep Streamlit App Alive
+on:
+  schedule:
+    # Executa automaticamente a cada 8 horas na nuvem
+    - cron: "0 0,8,16 * * *"
+  workflow_dispatch:
+jobs:
+  ping-app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Streamlit Community Cloud
+        run: |
+          curl -s -L --max-time 45 "https://firjan-macro.streamlit.app" > /dev/null || true
+          curl -s -L --max-time 45 "https://firjan-macro.streamlit.app/PIM" > /dev/null || true
+          echo "Ping na nuvem concluído com sucesso!"
