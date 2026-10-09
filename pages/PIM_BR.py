@@ -138,9 +138,11 @@ if colunas_faltantes:
 
 # Tratamento de tipos de dados
 df["Data"] = pd.to_datetime(df["DATA"])
+if df["Data"].dt.tz is not None:
+    df["Data"] = df["Data"].dt.tz_localize(None)
 df["Data pt"] = df["Data"].dt.strftime("%m/%Y")
-df["Ano"] = df["Data"].dt.year
-df["VALOR"] = pd.to_numeric(df["VALOR"], errors="coerce")
+df["Ano"] = df["Data"].dt.year.astype("int16")
+df["VALOR"] = pd.to_numeric(df["VALOR"], errors="coerce").astype("float32")
 
 # Dicionário de variáveis com rótulos amigáveis para o usuário
 VARIAVEIS_DICT = {

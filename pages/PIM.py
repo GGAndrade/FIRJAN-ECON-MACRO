@@ -163,7 +163,7 @@ st.markdown(
 st.write("---")
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=2, ttl=1800)
 def carregar_dados_pim(caminho_ou_arquivo):
     if isinstance(caminho_ou_arquivo, str):
         df = pd.read_parquet(caminho_ou_arquivo)
@@ -179,8 +179,8 @@ def carregar_dados_pim(caminho_ou_arquivo):
         df["Data"] = df["Data"].dt.tz_localize(None)
 
     df["Data pt"] = df["Data"].dt.strftime("%m/%Y")
-    df["Ano"] = df["Data"].dt.year
-    df["VALOR"] = pd.to_numeric(df["VALOR"], errors="coerce")
+    df["Ano"] = df["Data"].dt.year.astype("int16")
+    df["VALOR"] = pd.to_numeric(df["VALOR"], errors="coerce").astype("float32")
 
     if "LOCAL" not in df.columns:
         df["LOCAL"] = "Brasil"
