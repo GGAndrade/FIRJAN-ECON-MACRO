@@ -10,3 +10,5 @@ pdfminer.six
 python-docx
 xlrd
 pyarrow
+requests
+reportlab
