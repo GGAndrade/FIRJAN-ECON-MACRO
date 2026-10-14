@@ -164,7 +164,7 @@ st.write("---")
 
 
 @st.cache_data(show_spinner=False, max_entries=2, ttl=1800)
-def carregar_dados_pim(caminho_ou_arquivo):
+def carregar_dados_pim(caminho_ou_arquivo, mtime=0):
     if isinstance(caminho_ou_arquivo, str):
         df = pd.read_parquet(caminho_ou_arquivo)
     else:
@@ -236,7 +236,8 @@ try:
                 except Exception as e_save:
                     st.warning(f"Não foi possível salvar em disco: {e_save}")
     else:
-        df_completo = carregar_dados_pim(default_parquet)
+        mtime_padrao = os.path.getmtime(default_parquet) if os.path.exists(default_parquet) else 0
+        df_completo = carregar_dados_pim(default_parquet, mtime=mtime_padrao)
         st.markdown(
             f'<div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 16px; color: #1e40af; font-size: 14px; margin: 8px 0 16px 0;">'
             f'ℹ️ Utilizando a base consolidada padrão (<code>{default_parquet}</code>).'

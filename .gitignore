@@ -6,6 +6,7 @@ ENV/
 
 # Segredos e Configurações Confidenciais
 .streamlit/secrets.toml
+.streamlit/credentials.toml
 secrets.toml
 *.pem
 *.key
